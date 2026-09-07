@@ -1,0 +1,718 @@
+-- ============================================================================
+-- SCRIPT SQL: PLATAFORMA COLABORATIVA UNIVERSIDADE KIMPA VITA (PostgreSQL)
+-- O BANCO DE DADOS DEVE SER CRIADO EM POSTGRESQL E TODAS AS TABELAS DEVE ESTA EM PORTUGUES
+-- ============================================================================
+CREATE DATABASE IF NOT EXISTS kimpa_vita_colaborativa;
+USE kimpa_vita_colaborativa;
+-- ----------------------------------------------------------------------------
+-- 1. MÓDULO CORE, ACESSOS E PERFIS
+-- ----------------------------------------------------------------------------
+CREATE TABLE usuario (
+    id_usuario INT NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    num_estudante_login VARCHAR(50) NULL, -- Preenchido apenas para estudantes (login alternativo)
+    senha VARCHAR(255) NOT NULL, -- Guardar sempre em Hash (ex: BCrypt)
+    telefone VARCHAR(20) NULL,
+    foto_perfil VARCHAR(255) NULL,
+    status VARCHAR(20) DEFAULT 'ativo', -- 'ativo', 'inativo', 'suspenso'
+    data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_usuario),
+    UNIQUE KEY uq_usuario_email (email),
+    UNIQUE KEY uq_usuario_estudante (num_estudante_login)
+) ENGINE=InnoDB;
+CREATE TABLE perfil (
+    id_perfil INT NOT NULL AUTO_INCREMENT,
+    nome_perfil VARCHAR(50) NOT NULL, -- 'admin', 'coordenador', 'professor', 'estudante'
+    PRIMARY KEY (id_perfil),
+    UNIQUE KEY uq_perfil_nome (nome_perfil)
+) ENGINE=InnoDB;
+CREATE TABLE usuarioperfil (
+    id_usuario INT NOT NULL,
+    id_perfil INT NOT NULL,
+    PRIMARY KEY (id_usuario, id_perfil),
+    CONSTRAINT fk_usuperfil_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE,
+    CONSTRAINT fk_usuperfil_perfil FOREIGN KEY (id_perfil) REFERENCES perfil (id_perfil) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- ----------------------------------------------------------------------------
+-- 2. MÓDULO DE ESTRUTURA ACADÉMICA E VÍNCULOS
+-- ----------------------------------------------------------------------------
+CREATE TABLE unidadeorganica (
+    id_uo INT NOT NULL AUTO_INCREMENT,
+    nome_uo VARCHAR(150) NOT NULL, -- Ex: Faculdade de Economia, Instituto Superior Politécnico
+    sigla VARCHAR(20) NOT NULL,    -- Ex: FACE, ISPP
+    localizacao VARCHAR(100) NULL, -- Ex: Uíge, Cuanza Norte
+    PRIMARY KEY (id_uo)
+) ENGINE=InnoDB;
+CREATE TABLE ccurso (
+    id_curso INT NOT NULL AUTO_INCREMENT,
+    id_uo INT NOT NULL,
+    nome_curso VARCHAR(150) NOT NULL,
+    id_coordenador INT NULL,
+    PRIMARY KEY (id_curso),
+    CONSTRAINT fk_ccurso_uo FOREIGN KEY (id_uo) REFERENCES unidadeorganica (id_uo) ON DELETE RESTRICT,
+    CONSTRAINT fk_ccurso_coordenador FOREIGN KEY (id_coordenador) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE usuarioCurso (
+    id_usuario INT NOT NULL,
+    id_curso INT NOT NULL,
+    data_vinculo DATE NOT NULL,
+    PRIMARY KEY (id_usuario, id_curso),
+    CONSTRAINT fk_usercurso_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE,
+    CONSTRAINT fk_usercurso_curso FOREIGN KEY (id_curso) REFERENCES ccurso (id_curso) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE disciplina (
+    id_disciplina INT NOT NULL AUTO_INCREMENT,
+    id_curso INT NOT NULL,
+    nome_disciplina VARCHAR(150) NOT NULL,
+    semestre INT NOT NULL,
+    PRIMARY KEY (id_disciplina),
+    CONSTRAINT fk_disciplina_curso FOREIGN KEY (id_curso) REFERENCES ccurso (id_curso) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE turma (
+    id_turma INT NOT NULL AUTO_INCREMENT,
+    id_curso INT NOT NULL,
+    nome_turma VARCHAR(50) NOT NULL, -- Ex: M1_EF_2026
+    ano_curricular INT NOT NULL,     -- Ex: 1, 2, 3, 4
+    periodo VARCHAR(20) NOT NULL,    -- 'Manhã', 'Tarde', 'Pós-laboral'
+    PRIMARY KEY (id_turma),
+    CONSTRAINT fk_turma_curso FOREIGN KEY (id_curso) REFERENCES ccurso (id_curso) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE matriccula (
+    id_matricula INT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL, -- O Estudante
+    id_turma INT NOT NULL,
+    num_processo VARCHAR(50) NOT NULL, -- Número oficial na secretaria
+    ano_lectivo INT NOT NULL,
+    is_mentor BOOLEAN DEFAULT FALSE, -- Ativado pelo Coordenador
+    PRIMARY KEY (id_matricula),
+    UNIQUE KEY uq_matricula_processo (num_processo),
+    CONSTRAINT fk_matricula_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE,
+    CONSTRAINT fk_matricula_turma FOREIGN KEY (id_turma) REFERENCES turma (id_turma) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+-- Tabela de triagem para novos cadastros (Anti-Utilizadores Fantasma)
+CREATE TABLE solicitacao_acesso (
+    id_solicitacao INT NOT NULL AUTO_INCREMENT,
+    nome_completo VARCHAR(150) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    num_estudante VARCHAR(50) NOT NULL,
+    senha_provisoria VARCHAR(255) NOT NULL,
+    id_curso INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pendente', -- 'pendente', 'aprovado', 'rejeitado'
+    id_coordenador_validador INT NULL,
+    data_solicitacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_solicitacao),
+    UNIQUE KEY uq_solicitacao_email (email),
+    CONSTRAINT fk_solicitacao_curso FOREIGN KEY (id_curso) REFERENCES ccurso (id_curso) ON DELETE CASCADE,
+    CONSTRAINT fk_solicitacao_validador FOREIGN KEY (id_coordenador_validador) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+-- ----------------------------------------------------------------------------
+-- 3. MÓDULO DE COMPETÊNCIAS E HABILIDADES (HIERÁRQUICO)
+-- ----------------------------------------------------------------------------
+CREATE TABLE competencia (
+    id_competencia INT NOT NULL AUTO_INCREMENT,
+    nome_competencia VARCHAR(100) NOT NULL, -- Ex: 'Linguagem de Programação', 'Base de Dados'
+    PRIMARY KEY (id_competencia)
+) ENGINE=InnoDB;
+CREATE TABLE habilidade (
+    id_habilidade INT NOT NULL AUTO_INCREMENT,
+    id_competencia INT NOT NULL,
+    nome_habilidade VARCHAR(100) NOT NULL, -- Ex: 'C#', 'PostgreSQL', 'Didática'
+    PRIMARY KEY (id_habilidade),
+    CONSTRAINT fk_habilidade_competencia FOREIGN KEY (id_competencia) REFERENCES competencia (id_competencia) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE estudante_habilidade (
+    id_usuario INT NOT NULL,
+    id_habilidade INT NOT NULL,
+    nivel_proficiencia INT NOT NULL,
+    PRIMARY KEY (id_usuario, id_habilidade),
+    CONSTRAINT chk_nivel CHECK (nivel_proficiencia BETWEEN 1 AND 5),
+    CONSTRAINT fk_esthab_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE,
+    CONSTRAINT fk_esthab_habilidade FOREIGN KEY (id_habilidade) REFERENCES habilidade (id_habilidade) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- ----------------------------------------------------------------------------
+-- 4. MÓDULO DE COMUNICAÇÃO, CHAT E MENTORIA
+-- ----------------------------------------------------------------------------
+CREATE TABLE grupo (
+    id_grupo INT NOT NULL AUTO_INCREMENT,
+    nome_grupo VARCHAR(100) NOT NULL,
+    tipo_grupo VARCHAR(20) NOT NULL, -- 'turma', 'disciplina', 'trabalho', 'mentoria'
+    id_turma INT NULL,
+    id_disciplina INT NULL,
+    id_criador INT NULL,
+    PRIMARY KEY (id_grupo),
+    CONSTRAINT fk_grupo_turma FOREIGN KEY (id_turma) REFERENCES turma (id_turma) ON DELETE CASCADE,
+    CONSTRAINT fk_grupo_disciplina FOREIGN KEY (id_disciplina) REFERENCES disciplina (id_disciplina) ON DELETE CASCADE,
+    CONSTRAINT fk_grupo_criador FOREIGN KEY (id_criador) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE grupo_membro (
+    id_grupo INT NOT NULL,
+    id_usuario INT NOT NULL,
+    funcao_no_grupo VARCHAR(20) DEFAULT 'membro', -- 'membro', 'admin', 'mentor'
+    data_entrada DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_grupo, id_usuario),
+    CONSTRAINT fk_membro_grupo FOREIGN KEY (id_grupo) REFERENCES grupo (id_grupo) ON DELETE CASCADE,
+    CONSTRAINT fk_membro_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE mensagem (
+    id_mensagem INT NOT NULL AUTO_INCREMENT,
+    id_grupo INT NOT NULL,
+    id_emissor INT NULL,
+    conteudo TEXT NULL,
+    tipo_conteudo VARCHAR(20) DEFAULT 'texto', -- 'texto', 'ficheiro', 'imagem', 'audio'
+    url_ficheiro VARCHAR(255) NULL,               -- Caminho para o áudio ou PDF se aplicável
+    duracao_audio INT NULL,                       -- Duração em segundos
+    is_fixada BOOLEAN DEFAULT FALSE,         -- Mensagem fixada no topo
+    data_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_mensagem),
+    CONSTRAINT fk_mensagem_grupo FOREIGN KEY (id_grupo) REFERENCES grupo (id_grupo) ON DELETE CASCADE,
+    CONSTRAINT fk_mensagem_emissor FOREIGN KEY (id_emissor) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE mensagem_fixada_log (
+    id_fixacao INT NOT NULL AUTO_INCREMENT,
+    id_mensagem INT NOT NULL,
+    id_usuario_quem_fixou INT NULL,
+    data_fixacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_fixacao),
+    CONSTRAINT fk_fixado_mensagem FOREIGN KEY (id_mensagem) REFERENCES mensagem (id_mensagem) ON DELETE CASCADE,
+    CONSTRAINT fk_fixado_usuario FOREIGN KEY (id_usuario_quem_fixou) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE sessao_mentoria (
+    id_sessao INT NOT NULL AUTO_INCREMENT,
+    id_grupo_mentoria INT NULL,
+    id_mentor INT NOT NULL,
+    id_estudante_ajudado INT NOT NULL,
+    inicio_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fim_em DATETIME NULL,
+    duracao_segundos INT NULL, -- Para o Relatório da Secretaria
+    PRIMARY KEY (id_sessao),
+    CONSTRAINT fk_sessao_grupo FOREIGN KEY (id_grupo_mentoria) REFERENCES grupo (id_grupo) ON DELETE SET NULL,
+    CONSTRAINT fk_sessao_mentor FOREIGN KEY (id_mentor) REFERENCES usuario (id_usuario) ON DELETE RESTRICT,
+    CONSTRAINT fk_sessao_ajudado FOREIGN KEY (id_estudante_ajudado) REFERENCES usuario (id_usuario) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE TABLE feedback_mentoria (
+    id_sessao INT NOT NULL,
+    classificacao INT NOT NULL, -- Avaliação de 1 a 5 estrelas
+    comentario TEXT NULL,
+    data_text DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_sessao),
+    CONSTRAINT chk_feedback_nota CHECK (classificacao BETWEEN 1 AND 5),
+    CONSTRAINT fk_feedback_sessao FOREIGN KEY (id_sessao) REFERENCES sessao_mentoria (id_sessao) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- ----------------------------------------------------------------------------
+-- 5. MÓDULO DE AVALIAÇÕES ONLINE E ANTI-FRAUDE
+-- ----------------------------------------------------------------------------
+CREATE TABLE avaliacao (
+    id_avaliacao INT NOT NULL AUTO_INCREMENT,
+    id_disciplina INT NOT NULL,
+    id_professor INT NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
+    data_inicio DATETIME NOT NULL,
+    data_fim DATETIME NOT NULL,
+    duracao_minutos INT NOT NULL,
+    nota_maxima DECIMAL(5,2) NOT NULL,
+    PRIMARY KEY (id_avaliacao),
+    CONSTRAINT fk_avaliacao_disciplina FOREIGN KEY (id_disciplina) REFERENCES disciplina (id_disciplina) ON DELETE CASCADE,
+    CONSTRAINT fk_avaliacao_professor FOREIGN KEY (id_professor) REFERENCES usuario (id_usuario) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE TABLE questao (
+    id_questao INT NOT NULL AUTO_INCREMENT,
+    id_avaliacao INT NOT NULL,
+    enunciado TEXT NOT NULL,
+    tipo_questao VARCHAR(30) NOT NULL, -- 'multipla_escolha', 'verdadeiro_falso', 'desenvolvimento'
+    PRIMARY KEY (id_questao),
+    CONSTRAINT fk_questao_avaliacao FOREIGN KEY (id_avaliacao) REFERENCES avaliacao (id_avaliacao) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE alternativa (
+    id_alternativa INT NOT NULL AUTO_INCREMENT,
+    id_questao INT NOT NULL,
+    texto_alternativa TEXT NOT NULL,
+    is_correta BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (id_alternativa),
+    CONSTRAINT fk_alternativa_questao FOREIGN KEY (id_questao) REFERENCES questao (id_questao) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE tentativa_avaliacao (
+    id_tentativa INT NOT NULL AUTO_INCREMENT,
+    id_avaliacao INT NOT NULL,
+    id_estudante INT NOT NULL,
+    inicio_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    submetido_em DATETIME NULL,
+    nota_obtida DECIMAL(5,2) NULL,
+    status_tentativa VARCHAR(20) DEFAULT 'em_curso', -- 'em_curso', 'bloqueada', 'submetida'
+    PRIMARY KEY (id_tentativa),
+    CONSTRAINT fk_tentativa_avaliacao FOREIGN KEY (id_avaliacao) REFERENCES avaliacao (id_avaliacao) ON DELETE CASCADE,
+    CONSTRAINT fk_tentativa_estudante FOREIGN KEY (id_estudante) REFERENCES usuario (id_usuario) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE TABLE resposta_estudante (
+    id_tentativa INT NOT NULL,
+    id_questao INT NOT NULL,
+    id_alternativa_escolhida INT NULL,
+    texto_resposta TEXT NULL, -- Preenchido se for desenvolvimento
+    PRIMARY KEY (id_tentativa, id_questao),
+    CONSTRAINT fk_resposta_tentativa FOREIGN KEY (id_tentativa) REFERENCES tentativa_avaliacao (id_tentativa) ON DELETE CASCADE,
+    CONSTRAINT fk_resposta_questao FOREIGN KEY (id_questao) REFERENCES questao (id_questao) ON DELETE CASCADE,
+    CONSTRAINT fk_resposta_alternativa FOREIGN KEY (id_alternativa_escolhida) REFERENCES alternativa (id_alternativa) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE logs_seguranca (
+    id_log BIGINT NOT NULL AUTO_INCREMENT,
+    id_tentativa INT NOT NULL,
+    tipo_evento VARCHAR(50) NOT NULL, -- 'perda_de_foco', 'tentativa_copiar', 'mudanca_de_ip'
+    descricao VARCHAR(255) NOT NULL, -- Ex: "Estudante mudou de aba"
+    data_registo DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_log),
+    CONSTRAINT fk_logs_tentativa FOREIGN KEY (id_tentativa) REFERENCES tentativa_avaliacao (id_tentativa) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- ----------------------------------------------------------------------------
+-- 6. MÓDULO DE NETWORKING E VITRINE DE PROJETOS
+-- ----------------------------------------------------------------------------
+CREATE TABLE projeto_vitrine (
+    id_projeto INT NOT NULL AUTO_INCREMENT,
+    id_disciplina INT NULL,
+    id_professor_autorizador INT NULL,
+    titulo_projeto VARCHAR(150) NOT NULL,
+    descricao TEXT NOT NULL,
+    url_repositorio VARCHAR(255) NULL, -- Link para GitHub
+    url_demonstracao VARCHAR(255) NULL,
+    data_publicacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_projeto),
+    CONSTRAINT fk_projeto_disciplina FOREIGN KEY (id_disciplina) REFERENCES disciplina (id_disciplina) ON DELETE SET NULL,
+    CONSTRAINT fk_projeto_professor FOREIGN KEY (id_professor_autorizador) REFERENCES usuario (id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE projeto_autor (
+    id_projeto INT NOT NULL,
+    id_usuario INT NOT NULL, -- Aluno autor do projeto
+    PRIMARY KEY (id_projeto, id_usuario),
+    CONSTRAINT fk_autor_projeto FOREIGN KEY (id_projeto) REFERENCES projeto_vitrine (id_projeto) ON DELETE CASCADE,
+    CONSTRAINT fk_autor_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE projeto_curtidor (
+    id_projeto INT NOT NULL,
+    id_usuario INT NOT NULL, -- Quem deu "Gosto"
+    data_interacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_projeto, id_usuario),
+    CONSTRAINT fk_curtidor_projeto FOREIGN KEY (id_projeto) REFERENCES projeto_vitrine (id_projeto) ON DELETE CASCADE,
+    CONSTRAINT fk_curtidor_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario) ON DELETE CASCADE
+) ENGINE=InnoDB; como esta esta bd?
+3. TABELA DE NOTIFICAÇÕES
+CREATE TABLE notificacao (
+    id_notificacao BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
+    mensagem TEXT NOT NULL,
+    tipo VARCHAR(30) DEFAULT 'informacao',
+    prioridade VARCHAR(20) DEFAULT 'normal',
+    lida BOOLEAN DEFAULT FALSE,
+    data_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_notificacao),
+    CONSTRAINT fk_notificacao_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+4. SISTEMA DE LOGIN E SESSÕES
+CREATE TABLE login_sessao (
+    id_sessao BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    ip VARCHAR(100) NOT NULL,
+    dispositivo VARCHAR(255) NULL,
+    navegador VARCHAR(150) NULL,
+    sistema_operativo VARCHAR(150) NULL,
+    ultimo_acesso DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expira_em DATETIME NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (id_sessao),
+    CONSTRAINT fk_sessao_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+5. AUDITORIA DO SISTEMA
+CREATE TABLE auditoria_sistema (
+    id_auditoria BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NULL,
+    acao VARCHAR(100) NOT NULL,
+    tabela_afetada VARCHAR(100) NOT NULL,
+    id_registro_afetado BIGINT NULL,
+    descricao TEXT NULL,
+    ip VARCHAR(100) NULL,
+    data_registo DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_auditoria),
+    CONSTRAINT fk_auditoria_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE SET NULL
+) ENGINE=InnoDB;
+6. HISTÓRICO ACADÉMICO
+CREATE TABLE historico_academico (
+    id_historico BIGINT NOT NULL AUTO_INCREMENT,
+    id_estudante INT NOT NULL,
+    id_disciplina INT NOT NULL,
+    ano_lectivo INT NOT NULL,
+    nota_final DECIMAL(5,2) NOT NULL,
+    resultado VARCHAR(20) NOT NULL,
+    observacao TEXT NULL,
+    data_registo DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_historico),
+    CONSTRAINT fk_historico_estudante
+    FOREIGN KEY (id_estudante)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_historico_disciplina
+    FOREIGN KEY (id_disciplina)
+    REFERENCES disciplina(id_disciplina)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+7. MATERIAL DIDÁTICO
+CREATE TABLE material_didatico (
+    id_material BIGINT NOT NULL AUTO_INCREMENT,
+    id_disciplina INT NOT NULL,
+    id_professor INT NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
+    descricao TEXT NULL,
+    tipo_material VARCHAR(30) NOT NULL,
+    url_arquivo VARCHAR(255) NOT NULL,
+    tamanho_arquivo VARCHAR(50) NULL,
+    data_publicacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_material),
+    CONSTRAINT fk_material_disciplina
+    FOREIGN KEY (id_disciplina)
+    REFERENCES disciplina(id_disciplina)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_material_professor
+    FOREIGN KEY (id_professor)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+8. CALENDÁRIO ACADÉMICO
+CREATE TABLE calendario_academico (
+    id_evento BIGINT NOT NULL AUTO_INCREMENT,
+    titulo VARCHAR(150) NOT NULL,
+    descricao TEXT NULL,
+    tipo_evento VARCHAR(50) NOT NULL,
+    data_inicio DATETIME NOT NULL,
+    data_fim DATETIME NULL,
+    id_curso INT NULL,
+    id_turma INT NULL,
+    criado_por INT NULL,
+    PRIMARY KEY (id_evento),
+    CONSTRAINT fk_calendario_curso
+    FOREIGN KEY (id_curso)
+    REFERENCES ccurso(id_curso)
+    ON DELETE SET NULL,
+    CONSTRAINT fk_calendario_turma
+    FOREIGN KEY (id_turma)
+    REFERENCES turma(id_turma)
+    ON DELETE SET NULL,
+    CONSTRAINT fk_calendario_usuario
+    FOREIGN KEY (criado_por)
+    REFERENCES usuario(id_usuario)
+    ON DELETE SET NULL
+) ENGINE=InnoDB;
+9. REUNIÕES E VIDEOCHAMADAS
+CREATE TABLE reuniao_virtual (
+    id_reuniao BIGINT NOT NULL AUTO_INCREMENT,
+    titulo VARCHAR(150) NOT NULL,
+    descricao TEXT NULL,
+    id_criador INT NOT NULL,
+    id_grupo INT NULL,
+    link_reuniao VARCHAR(255) NULL,
+    plataforma VARCHAR(50) NULL,
+    data_inicio DATETIME NOT NULL,
+    data_fim DATETIME NULL,
+    status VARCHAR(20) DEFAULT 'agendada',
+    PRIMARY KEY (id_reuniao),
+    CONSTRAINT fk_reuniao_usuario
+    FOREIGN KEY (id_criador)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_reuniao_grupo
+    FOREIGN KEY (id_grupo)
+    REFERENCES grupo(id_grupo)
+    ON DELETE SET NULL
+) ENGINE=InnoDB;
+10. PARTICIPANTES DAS REUNIÕES
+CREATE TABLE reuniao_participante (
+    id_reuniao BIGINT NOT NULL,
+    id_usuario INT NOT NULL,
+    entrou_em DATETIME NULL,
+    saiu_em DATETIME NULL,
+    PRIMARY KEY (id_reuniao, id_usuario),
+    CONSTRAINT fk_reuniao_participante_reuniao
+    FOREIGN KEY (id_reuniao)
+    REFERENCES reuniao_virtual(id_reuniao)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_reuniao_participante_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+11. SISTEMA DE PROCTORING AVANÇADO
+CREATE TABLE monitoramento_prova (
+    id_monitoramento BIGINT NOT NULL AUTO_INCREMENT,
+    id_tentativa INT NOT NULL,
+    perda_foco INT DEFAULT 0,
+    tentativas_copia INT DEFAULT 0,
+    mudancas_ip INT DEFAULT 0,
+    tempo_inatividade INT DEFAULT 0,
+    webcam_ativa BOOLEAN DEFAULT FALSE,
+    deteccao_multiplos_rostos BOOLEAN DEFAULT FALSE,
+    nivel_suspeita VARCHAR(20) DEFAULT 'baixo',
+    bloqueado BOOLEAN DEFAULT FALSE,
+    observacao TEXT NULL,
+    PRIMARY KEY (id_monitoramento),
+    CONSTRAINT fk_monitoramento_tentativa
+    FOREIGN KEY (id_tentativa)
+    REFERENCES tentativa_avaliacao(id_tentativa)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+12. SISTEMA DE RECUPERAÇÃO DE SENHA
+CREATE TABLE recuperacao_senha (
+    id_recuperacao BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expira_em DATETIME NOT NULL,
+    utilizado BOOLEAN DEFAULT FALSE,
+    data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_recuperacao),
+    CONSTRAINT fk_recuperacao_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+13. SISTEMA DE PRESENÇAS
+CREATE TABLE presenca_aula (
+    id_presenca BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    id_disciplina INT NOT NULL,
+    data_aula DATE NOT NULL,
+    presente BOOLEAN DEFAULT TRUE,
+    observacao TEXT NULL,
+    PRIMARY KEY (id_presenca),
+    CONSTRAINT fk_presenca_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_presenca_disciplina
+    FOREIGN KEY (id_disciplina)
+    REFERENCES disciplina(id_disciplina)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+14. DASHBOARD E MÉTRICAS
+CREATE TABLE atividade_usuario (
+    id_atividade BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    tipo_atividade VARCHAR(100) NOT NULL,
+    descricao TEXT NULL,
+    data_atividade DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_atividade),
+    CONSTRAINT fk_atividade_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+15. SISTEMA DE REPUTAÇÃO ACADÉMICA
+CREATE TABLE reputacao_academica (
+    id_reputacao BIGINT NOT NULL AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    pontos INT DEFAULT 0,
+    nivel VARCHAR(50) DEFAULT 'iniciante',
+    mentorias_realizadas INT DEFAULT 0,
+    projetos_publicados INT DEFAULT 0,
+    feedback_positivo INT DEFAULT 0,
+    PRIMARY KEY (id_reputacao),
+    CONSTRAINT fk_reputacao_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+16. SISTEMA DE ESTÁGIOS E OPORTUNIDADES
+CREATE TABLE oportunidade_academica (
+    id_oportunidade BIGINT NOT NULL AUTO_INCREMENT,
+    titulo VARCHAR(150) NOT NULL,
+    descricao TEXT NOT NULL,
+    tipo VARCHAR(50) NOT NULL,
+    empresa VARCHAR(150) NULL,
+    requisitos TEXT NULL,
+    data_limite DATE NULL,
+    criado_por INT NULL,
+    data_publicacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_oportunidade),
+    CONSTRAINT fk_oportunidade_usuario
+    FOREIGN KEY (criado_por)
+    REFERENCES usuario(id_usuario)
+    ON DELETE SET NULL
+) ENGINE=InnoDB;
+17. CANDIDATURA ÀS OPORTUNIDADES
+CREATE TABLE candidatura_oportunidade (
+    id_candidatura BIGINT NOT NULL AUTO_INCREMENT,
+    id_oportunidade BIGINT NOT NULL,
+    id_usuario INT NOT NULL,
+    estado VARCHAR(30) DEFAULT 'pendente',
+    data_candidatura DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_candidatura),
+    CONSTRAINT fk_candidatura_oportunidade
+    FOREIGN KEY (id_oportunidade)
+    REFERENCES oportunidade_academica(id_oportunidade)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_candidatura_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+18. ÍNDICES PARA PERFORMANCE
+CREATE INDEX idx_usuario_email ON usuario(email);
+CREATE INDEX idx_mensagem_data ON mensagem(data_envio);
+CREATE INDEX idx_avaliacao_data ON avaliacao(data_inicio);
+CREATE INDEX idx_logs_data ON logs_seguranca(data_registo);
+CREATE INDEX idx_notificacao_usuario ON notificacao(id_usuario);
+CREATE INDEX idx_historico_estudante ON historico_academico(id_estudante);
+19. RECOMENDAÇÕES PROFISSIONAIS
+Backend Recomendado
+PHP 8.3 + PDO
+Laravel ou arquitetura MVC própria
+JWT Authentication
+Redis para cache
+WebSocket para chat em tempo real
+Frontend Recomendado
+Bootstrap 5
+Vue.js ou React
+PWA (Progressive Web App)
+Infraestrutura
+Docker
+Nginx
+MySQL 8+
+Cloud Storage para ficheiros
+Segurança
+BCrypt ou Argon2
+HTTPS obrigatório
+Rate limiting
+2FA para administradores
+Logs de auditoria
+Criptografia de tokens
+20. DESENVOLVIMENTO COM NEXT.JS (RECOMENDAÇÃO PROFISSIONAL)
+Vale muito a pena desenvolver em Next.js?
+Sim. Na verdade, para o nível que a tua plataforma atingiu, o Next.js é uma das melhores escolhas possíveis.
+A tua plataforma já deixou de ser um simples sistema CRUD académico.Ela agora possui:
+chat em tempo real
+avaliações online
+networking académico
+dashboard institucional
+uploads de ficheiros
+mentorias
+notificações
+perfis avançados
+controlo de sessões
+analytics
+segurança avançada
+Tudo isso encaixa muito bem em:
+React
+Next.js
+arquitetura moderna SPA + SSR
+Stack Recomendada (Nível Institucional)
+Frontend
+Next.js 15+
+TypeScript
+Tailwind CSS
+ShadCN UI
+Zustand ou Redux
+Framer Motion
+Socket.IO Client
+Backend
+Tu tens duas opções fortes:
+OPÇÃO 1 — Next.js Fullstack
+Usar:
+Next.js API Routes
+Server Actions
+Prisma ORM
+JWT
+MySQL
+Vantagem:
+tudo num único projeto
+mais simples para deployment
+muito moderno
+Ideal para MVP institucional.
+OPÇÃO 2 — Arquitetura Profissional Separada (RECOMENDADA)
+Frontend
+Next.js
+Backend API
+Laravel APIOU
+NestJS
+Base de Dados
+MySQL 8+
+Tempo Real
+Socket.IO
+Redis
+Armazenamento
+MinIOOU
+Cloudinary
+Essa opção é a mais profissional.
+Porque Next.js é excelente para teu sistema
+1. Performance
+Muito rápido.
+2. SEO
+Importante para:
+vitrine de projetos
+reputação académica
+networking
+3. Escalabilidade
+Pode crescer para:
+múltiplas universidades
+mobile app
+API pública
+4. PWA
+Pode funcionar quase como app Android.
+5. Tempo Real
+Integra facilmente:
+chats
+notificações
+avaliações em direto
+O QUE EU RECOMENDO PARA TI
+Como és da área de Engenharia Informática e queres algo sério:
+Melhor Arquitetura:
+Frontend
+Next.js
+Backend
+Laravel API
+Database
+MySQL
+Tempo real
+Socket.IO
+Autenticação
+JWT + Refresh Token
+Uploads
+Cloudinary
+Deploy
+VPS Ubuntu + Docker
+Módulos que Next.js vai facilitar
+Dashboard moderno
+Interface tipo Microsoft Teams
+Chat em tempo real
+Feed académico
+Perfil profissional do estudante
+Sistema de mentorias
+Avaliações online
+Analytics institucionais
+Visão Tecnológica Final
+A tua plataforma já pode tornar-se:
+Startup EdTech
+Produto SaaS Universitário
+Sistema institucional real
+Plataforma nacional universitária
+Ela está num nível muito acima de um TCC comum.
+20. VISÃO FINAL DO SISTEMA
+A plataforma deixa de ser apenas um sistema académico e torna-se:
+Rede académica universitária
+Plataforma de mentoria
+Ambiente virtual de aprendizagem
+Sistema seguro de avaliações online
+Ecossistema de networking estudantil
+Repositório institucional de projetos
+Sistema inteligente de integração académica
+Ela aproxima-se de soluções como:
+Moodle
+Microsoft Teams
+Google Classroom
+LinkedIn Académico
+Canvas LMS
+Tudo adaptado à realidade universitária angolana.

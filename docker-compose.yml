@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Base de dados PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: kimpa_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345}
+      POSTGRES_DB: kimpa_connect_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kimpa_connect_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Aplicação Kimpa Connect (Next.js + Socket.IO)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kimpa_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-12345}@db:5432/kimpa_connect_db?schema=public"
+      AUTH_SECRET: ${AUTH_SECRET:-kimpa_secret_key_super_segura_2026}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/public/uploads
+
+volumes:
+  postgres_data:
+  uploads_data:

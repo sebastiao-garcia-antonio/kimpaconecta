@@ -1,0 +1,786 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. MÓDULO CORE, ACESSOS E PERFIS
+
+model Usuario {
+  id                 Int                  @id @default(autoincrement()) @map("id_usuario")
+  nome               String               @db.VarChar(150)
+  email              String               @unique @db.VarChar(100)
+  numEstudanteLogin  String?              @unique @map("num_estudante_login") @db.VarChar(50)
+  numBi              String?              @unique @map("num_bi") @db.VarChar(50)
+  senha              String               @db.VarChar(255)
+  telefone           String?              @db.VarChar(20)
+  fotoPerfil         String?              @map("foto_perfil") @db.VarChar(255)
+  bio                String?              @db.Text
+  status             String               @default("ativo") @db.VarChar(20) // 'ativo', 'inativo', 'suspenso'
+  dataCriacao        DateTime             @default(now()) @map("data_criacao") @db.Timestamp
+
+  perfis             UsuarioPerfil[]
+  cursos             UsuarioCurso[]
+  coordenandoCursos  Curso[]              @relation("CoordenadorCurso")
+  matriculas         Matricula[]
+  solicitacoesValidadas SolicitacaoAcesso[] @relation("CoordenadorValidador")
+  habilidades        EstudanteHabilidade[]
+  gruposCriados      Grupo[]              @relation("GrupoCriador")
+  membroGrupos       GrupoMembro[]
+  mensagensEnviadas  Mensagem[]           @relation("MensagemEmissor")
+  mensagensFixadas   MensagemFixadaLog[]
+  mentorSessoes      SessaoMentoria[]     @relation("SessaoMentor")
+  alunoSessoes       SessaoMentoria[]     @relation("SessaoAjudado")
+  avaliacoesCriadas  Avaliacao[]          @relation("ProfessorAvaliacao")
+  tentativasProvas   TentativaAvaliacao[]
+  projetosAutor      ProjetoAutor[]
+  projetosCurtidos   ProjetoCurtidor[]
+  projetosAutorizados ProjetoVitrine[]   @relation("ProfessorAutorizador")
+  notificacoes       Notificacao[]
+  sessoesLogin       LoginSessao[]
+  auditorias         AuditoriaSistema[]
+  historicoAcademico HistoricoAcademico[]
+  materiaisCriados   MaterialDidatico[]   @relation("ProfessorMaterial")
+  eventosCriados     CalendarioAcademico[] @relation("CriadorEvento")
+  reunioesCriadas    ReuniaoVirtual[]     @relation("CriadorReuniao")
+  participacoesReuniao ReuniaoParticipante[]
+  presencas          PresencaAula[]
+  diariosAulaCriados DiarioAula[] @relation("DocenteDiarioAula")
+  atividades         AtividadeUsuario[]
+  reputacao          ReputacaoAcademica[]
+  oportunidadesCriadas OportunidadeAcademica[] @relation("CriadorOportunidade")
+  candidaturas       CandidaturaOportunidade[]
+  recuperacoesSenha  RecuperacaoSenha[]
+  publicacoesCriadas Publicacao[]              @relation("AutorPublicacao")
+  comentariosCriados ComentarioPublicacao[]    @relation("AutorComentarioPublicacao")
+  gostosPublicacoes  GostoPublicacao[]
+  seguidores         SeguidorUsuario[] @relation("SeguidoRelacao")
+  seguindo           SeguidorUsuario[] @relation("SeguidorRelacao")
+
+  @@map("usuario")
+}
+
+model Perfil {
+  id         Int             @id @default(autoincrement()) @map("id_perfil")
+  nomePerfil String          @unique @map("nome_perfil") @db.VarChar(50) // 'admin', 'coordenador', 'professor', 'estudante'
+  usuarios   UsuarioPerfil[]
+
+  @@map("perfil")
+}
+
+model UsuarioPerfil {
+  idUsuario Int     @map("id_usuario")
+  idPerfil  Int     @map("id_perfil")
+  usuario   Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  perfil    Perfil  @relation(fields: [idPerfil], references: [id], onDelete: Cascade)
+
+  @@id([idUsuario, idPerfil])
+  @@map("usuarioperfil")
+}
+
+// 2. MÓDULO DE ESTRUTURA ACADÉMICA E VÍNCULOS
+
+model UnidadeOrganica {
+  id          Int     @id @default(autoincrement()) @map("id_uo")
+  nomeUo      String  @map("nome_uo") @db.VarChar(150)
+  sigla       String  @db.VarChar(20)
+  localizacao String? @db.VarChar(100)
+  cursos      Curso[]
+
+  @@map("unidadeorganica")
+}
+
+model Curso {
+  id            Int             @id @default(autoincrement()) @map("id_curso")
+  idUo          Int             @map("id_uo")
+  nomeCurso     String          @map("nome_curso") @db.VarChar(150)
+  idCoordenador Int?            @map("id_coordenador")
+  
+  unidade       UnidadeOrganica @relation(fields: [idUo], references: [id], onDelete: Restrict)
+  coordenador   Usuario?        @relation("CoordenadorCurso", fields: [idCoordenador], references: [id], onDelete: SetNull)
+  usuarios      UsuarioCurso[]
+  disciplinas   Disciplina[]
+  turmas        Turma[]
+  solicitacoes  SolicitacaoAcesso[]
+  eventos       CalendarioAcademico[]
+
+  @@map("ccurso")
+}
+
+model UsuarioCurso {
+  idUsuario   Int      @map("id_usuario")
+  idCurso     Int      @map("id_curso")
+  dataVinculo DateTime @map("data_vinculo") @db.Date
+
+  usuario     Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  curso       Curso    @relation(fields: [idCurso], references: [id], onDelete: Cascade)
+
+  @@id([idUsuario, idCurso])
+  @@map("usuarioCurso")
+}
+
+model Disciplina {
+  id             Int                  @id @default(autoincrement()) @map("id_disciplina")
+  idCurso        Int                  @map("id_curso")
+  nomeDisciplina String               @map("nome_disciplina") @db.VarChar(150)
+  semestre       Int
+  
+  curso          Curso                @relation(fields: [idCurso], references: [id], onDelete: Cascade)
+  grupos         Grupo[]
+  avaliacoes     Avaliacao[]
+  projetos       ProjetoVitrine[]
+  historico      HistoricoAcademico[]
+  materiais      MaterialDidatico[]
+  presencas      PresencaAula[]
+  diariosAula    DiarioAula[]
+
+  @@map("disciplina")
+}
+
+model Turma {
+  id            Int                   @id @default(autoincrement()) @map("id_turma")
+  idCurso       Int                   @map("id_curso")
+  nomeTurma     String                @map("nome_turma") @db.VarChar(50)
+  anoCurricular Int                   @map("ano_curricular")
+  periodo       String                @db.VarChar(20) // 'Manhã', 'Tarde', 'Pós-laboral'
+  
+  curso         Curso                 @relation(fields: [idCurso], references: [id], onDelete: Cascade)
+  matriculas    Matricula[]
+  grupos        Grupo[]
+  eventos       CalendarioAcademico[]
+  solicitacoes  SolicitacaoAcesso[]
+  diariosAula   DiarioAula[]
+
+  @@map("turma")
+}
+
+model Matricula {
+  id         Int     @id @default(autoincrement()) @map("id_matricula")
+  idUsuario  Int     @map("id_usuario")
+  idTurma    Int     @map("id_turma")
+  numProcesso String  @unique @map("num_processo") @db.VarChar(50)
+  anoLectivo Int     @map("ano_lectivo")
+  isMentor   Boolean @default(false) @map("is_mentor")
+  
+  usuario    Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  turma      Turma   @relation(fields: [idTurma], references: [id], onDelete: Restrict)
+
+  @@map("matriccula")
+}
+
+model SolicitacaoAcesso {
+  id                    Int      @id @default(autoincrement()) @map("id_solicitacao")
+  nomeCompleto          String   @map("nome_completo") @db.VarChar(150)
+  email                 String   @unique @db.VarChar(100)
+  numEstudante          String   @map("num_estudante") @db.VarChar(50)
+  numBi                 String?  @map("num_bi") @db.VarChar(50)
+  telefone              String?  @db.VarChar(20)
+  senhaProvisoria       String   @map("senha_provisoria") @db.VarChar(255)
+  idTurma               Int?     @map("id_turma")
+  idCurso               Int      @map("id_curso")
+  status                String   @default("pendente") @db.VarChar(20) // 'pendente', 'aprovado', 'rejeitado'
+  idCoordenadorValidador Int?    @map("id_coordenador_validador")
+  dataSolicitacao       DateTime @default(now()) @map("data_solicitacao") @db.Timestamp
+
+  curso                 Curso    @relation(fields: [idCurso], references: [id], onDelete: Cascade)
+  turma                 Turma?   @relation(fields: [idTurma], references: [id], onDelete: SetNull)
+  coordenador           Usuario? @relation("CoordenadorValidador", fields: [idCoordenadorValidador], references: [id], onDelete: SetNull)
+
+  @@map("solicitacao_acesso")
+}
+
+// 3. MÓDULO DE COMPETÊNCIAS E HABILIDADES (HIERÁRQUICO)
+
+model Competencia {
+  id             Int          @id @default(autoincrement()) @map("id_competencia")
+  nomeCompetencia String       @map("nome_competencia") @db.VarChar(100)
+  habilidades    Habilidade[]
+
+  @@map("competencia")
+}
+
+model Habilidade {
+  id             Int                   @id @default(autoincrement()) @map("id_habilidade")
+  idCompetencia  Int                   @map("id_competencia")
+  nomeHabilidade String                @map("nome_habilidade") @db.VarChar(100)
+  
+  competencia    Competencia           @relation(fields: [idCompetencia], references: [id], onDelete: Cascade)
+  estudantes     EstudanteHabilidade[]
+
+  @@map("habilidade")
+}
+
+model EstudanteHabilidade {
+  idUsuario        Int        @map("id_usuario")
+  idHabilidade     Int        @map("id_habilidade")
+  nivelProficiencia Int        @map("nivel_proficiencia")
+
+  usuario          Usuario    @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  habilidade       Habilidade @relation(fields: [idHabilidade], references: [id], onDelete: Cascade)
+
+  @@id([idUsuario, idHabilidade])
+  @@map("estudante_habilidade")
+}
+
+// 4. MÓDULO DE COMUNICAÇÃO, CHAT E MENTORIA
+
+model Grupo {
+  id          Int       @id @default(autoincrement()) @map("id_grupo")
+  nomeGrupo   String    @map("nome_grupo") @db.VarChar(100)
+  tipoGrupo   String    @map("tipo_grupo") @db.VarChar(20) // 'turma', 'disciplina', 'trabalho', 'mentoria'
+  idTurma     Int?      @map("id_turma")
+  idDisciplina Int?     @map("id_disciplina")
+  idCriador   Int?      @map("id_criador")
+  chaveConversa String?  @unique @map("chave_conversa") @db.VarChar(80)
+
+  turma       Turma?    @relation(fields: [idTurma], references: [id], onDelete: Cascade)
+  disciplina  Disciplina? @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+  criador     Usuario?  @relation("GrupoCriador", fields: [idCriador], references: [id], onDelete: SetNull)
+  membros     GrupoMembro[]
+  mensagens   Mensagem[]
+  sessoesMentoria SessaoMentoria[]
+  reunioes    ReuniaoVirtual[]
+
+  @@map("grupo")
+}
+
+model GrupoMembro {
+  idGrupo       Int      @map("id_grupo")
+  idUsuario     Int      @map("id_usuario")
+  funcaoNoGrupo String?  @default("membro") @map("funcao_no_grupo") @db.VarChar(20) // 'membro', 'admin', 'mentor'
+  dataEntrada   DateTime @default(now()) @map("data_entrada") @db.Timestamp
+
+  grupo         Grupo    @relation(fields: [idGrupo], references: [id], onDelete: Cascade)
+  usuario       Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idGrupo, idUsuario])
+  @@map("grupo_membro")
+}
+
+model Mensagem {
+  id           Int       @id @default(autoincrement()) @map("id_mensagem")
+  idGrupo      Int       @map("id_grupo")
+  idEmissor    Int?      @map("id_emissor")
+  conteudo     String?   @db.Text
+  tipoConteudo String    @default("texto") @map("tipo_conteudo") @db.VarChar(20) // 'texto', 'ficheiro', 'imagem', 'audio'
+  urlFicheiro  String?   @map("url_ficheiro") @db.VarChar(255)
+  duracaoAudio Int?      @map("duracao_audio")
+  isFixada     Boolean   @default(false) @map("is_fixada")
+  dataEnvio    DateTime  @default(now()) @map("data_envio") @db.Timestamp
+
+  grupo        Grupo     @relation(fields: [idGrupo], references: [id], onDelete: Cascade)
+  emissor      Usuario?  @relation("MensagemEmissor", fields: [idEmissor], references: [id], onDelete: SetNull)
+  fixacoes     MensagemFixadaLog[]
+
+  @@map("mensagem")
+}
+
+model MensagemFixadaLog {
+  id                 Int      @id @default(autoincrement()) @map("id_fixacao")
+  idMensagem         Int      @map("id_mensagem")
+  idUsuarioQuemFixou Int?     @map("id_usuario_quem_fixou")
+  dataFixacao        DateTime @default(now()) @map("data_fixacao") @db.Timestamp
+
+  mensagem           Mensagem @relation(fields: [idMensagem], references: [id], onDelete: Cascade)
+  usuario            Usuario? @relation(fields: [idUsuarioQuemFixou], references: [id], onDelete: SetNull)
+
+  @@map("mensagem_fixada_log")
+}
+
+model SessaoMentoria {
+  id                Int       @id @default(autoincrement()) @map("id_sessao")
+  idGrupoMentoria   Int?      @map("id_grupo_mentoria")
+  idMentor          Int       @map("id_mentor")
+  idEstudanteAjudado Int      @map("id_estudante_ajudado")
+  inicioEm          DateTime  @default(now()) @map("inicio_em") @db.Timestamp
+  fimEm             DateTime? @map("fim_em") @db.Timestamp
+  duracaoSegundos   Int?      @map("duracao_segundos")
+
+  grupo             Grupo?    @relation(fields: [idGrupoMentoria], references: [id], onDelete: SetNull)
+  mentor            Usuario   @relation("SessaoMentor", fields: [idMentor], references: [id], onDelete: Restrict)
+  estudanteAjudado  Usuario   @relation("SessaoAjudado", fields: [idEstudanteAjudado], references: [id], onDelete: Restrict)
+  feedback          FeedbackMentoria?
+
+  @@map("sessao_mentoria")
+}
+
+model FeedbackMentoria {
+  idSessao      Int      @id @map("id_sessao")
+  classificacao Int      @map("classificacao")
+  comentario    String?  @db.Text
+  dataText      DateTime @default(now()) @map("data_text") @db.Timestamp
+
+  sessao        SessaoMentoria @relation(fields: [idSessao], references: [id], onDelete: Cascade)
+
+  @@map("feedback_mentoria")
+}
+
+// 5. MÓDULO DE AVALIAÇÕES ONLINE E ANTI-FRAUDE
+
+model Avaliacao {
+  id             Int       @id @default(autoincrement()) @map("id_avaliacao")
+  idDisciplina   Int       @map("id_disciplina")
+  idProfessor    Int       @map("id_professor")
+  titulo         String    @db.VarChar(150)
+  dataInicio     DateTime  @map("data_inicio") @db.Timestamp
+  dataFim        DateTime  @map("data_fim") @db.Timestamp
+  duracaoMinutos Int       @map("duracao_minutos")
+  notaMaxima     Decimal   @map("nota_maxima") @db.Decimal(5, 2)
+
+  disciplina     Disciplina @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+  professor      Usuario    @relation("ProfessorAvaliacao", fields: [idProfessor], references: [id], onDelete: Restrict)
+  questoes       Questao[]
+  tentativas     TentativaAvaliacao[]
+
+  @@map("avaliacao")
+}
+
+model Questao {
+  id          Int      @id @default(autoincrement()) @map("id_questao")
+  idAvaliacao Int      @map("id_avaliacao")
+  enunciado   String   @db.Text
+  tipoQuestao String   @map("tipo_questao") @db.VarChar(30) // 'multipla_escolha', 'verdadeiro_falso', 'desenvolvimento'
+
+  avaliacao   Avaliacao @relation(fields: [idAvaliacao], references: [id], onDelete: Cascade)
+  alternativas Alternativa[]
+  respostasEstudante RespostaEstudante[]
+
+  @@map("questao")
+}
+
+model Alternativa {
+  id               Int      @id @default(autoincrement()) @map("id_alternativa")
+  idQuestao        Int      @map("id_questao")
+  textoAlternativa String   @map("texto_alternativa") @db.Text
+  isCorreta        Boolean  @default(false) @map("is_correta")
+
+  questao          Questao  @relation(fields: [idQuestao], references: [id], onDelete: Cascade)
+  respostasEstudante RespostaEstudante[]
+
+  @@map("alternativa")
+}
+
+model TentativaAvaliacao {
+  id             Int       @id @default(autoincrement()) @map("id_tentativa")
+  idAvaliacao    Int       @map("id_avaliacao")
+  idEstudante    Int       @map("id_estudante")
+  inicioEm       DateTime  @default(now()) @map("inicio_em") @db.Timestamp
+  submetidoEm    DateTime? @map("submetido_em") @db.Timestamp
+  notaObtida     Decimal?  @map("nota_obtida") @db.Decimal(5, 2)
+  statusTentativa String    @default("em_curso") @map("status_tentativa") @db.VarChar(20) // 'em_curso', 'bloqueada', 'submetida'
+
+  avaliacao      Avaliacao @relation(fields: [idAvaliacao], references: [id], onDelete: Cascade)
+  estudante      Usuario   @relation(fields: [idEstudante], references: [id], onDelete: Restrict)
+  respostas      RespostaEstudante[]
+  logsSeguranca  LogsSeguranca[]
+  monitoramento  MonitoramentoProva[]
+
+  @@map("tentativa_avaliacao")
+}
+
+model RespostaEstudante {
+  idTentativa            Int          @map("id_tentativa")
+  idQuestao              Int          @map("id_questao")
+  idAlternativaEscolhida Int?         @map("id_alternativa_escolhida")
+  textoResposta          String?      @map("texto_resposta") @db.Text
+
+  tentativa              TentativaAvaliacao @relation(fields: [idTentativa], references: [id], onDelete: Cascade)
+  questao                Questao      @relation(fields: [idQuestao], references: [id], onDelete: Cascade)
+  alternativa            Alternativa? @relation(fields: [idAlternativaEscolhida], references: [id], onDelete: SetNull)
+
+  @@id([idTentativa, idQuestao])
+  @@map("resposta_estudante")
+}
+
+model LogsSeguranca {
+  id          BigInt   @id @default(autoincrement()) @map("id_log")
+  idTentativa Int      @map("id_tentativa")
+  tipoEvento  String   @map("tipo_evento") @db.VarChar(50) // 'perda_de_foco', 'tentativa_copiar', 'mudanca_de_ip'
+  descricao   String   @db.VarChar(255)
+  dataRegisto DateTime @default(now()) @map("data_registo") @db.Timestamp
+
+  tentativa   TentativaAvaliacao @relation(fields: [idTentativa], references: [id], onDelete: Cascade)
+
+  @@map("logs_seguranca")
+}
+
+// 6. MÓDULO DE NETWORKING E VITRINE DE PROJETOS
+
+model ProjetoVitrine {
+  id                     Int       @id @default(autoincrement()) @map("id_projeto")
+  idDisciplina           Int?      @map("id_disciplina")
+  idProfessorAutorizador Int?      @map("id_professor_autorizador")
+  tituloProjeto          String    @map("titulo_projeto") @db.VarChar(150)
+  descricao              String    @db.Text
+  urlRepositorio         String?   @map("url_repositorio") @db.VarChar(255)
+  urlDemonstracao        String?   @map("url_demonstracao") @db.VarChar(255)
+  dataPublicacao         DateTime  @default(now()) @map("data_publicacao") @db.Timestamp
+
+  disciplina             Disciplina? @relation(fields: [idDisciplina], references: [id], onDelete: SetNull)
+  professor              Usuario?  @relation("ProfessorAutorizador", fields: [idProfessorAutorizador], references: [id], onDelete: SetNull)
+  autores                ProjetoAutor[]
+  curtidores             ProjetoCurtidor[]
+
+  @@map("projeto_vitrine")
+}
+
+model ProjetoAutor {
+  idProjeto Int            @map("id_projeto")
+  idUsuario Int            @map("id_usuario")
+  projeto   ProjetoVitrine @relation(fields: [idProjeto], references: [id], onDelete: Cascade)
+  usuario   Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idProjeto, idUsuario])
+  @@map("projeto_autor")
+}
+
+model ProjetoCurtidor {
+  idProjeto     Int            @map("id_projeto")
+  idUsuario     Int            @map("id_usuario")
+  dataInteracao DateTime       @default(now()) @map("data_interacao") @db.Timestamp
+  projeto       ProjetoVitrine @relation(fields: [idProjeto], references: [id], onDelete: Cascade)
+  usuario       Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idProjeto, idUsuario])
+  @@map("projeto_curtidor")
+}
+
+// 7. TABELA DE NOTIFICAÇÕES
+
+model Publicacao {
+  id              Int                   @id @default(autoincrement()) @map("id_publicacao")
+  idAutor         Int                   @map("id_autor")
+  conteudo        String                @db.Text
+  urlImagem       String?               @map("url_imagem") @db.VarChar(255)
+  estado          String                @default("publicado") @db.VarChar(20) // 'publicado', 'oculto'
+  dataPublicacao  DateTime              @default(now()) @map("data_publicacao") @db.Timestamp
+
+  autor           Usuario               @relation("AutorPublicacao", fields: [idAutor], references: [id], onDelete: Cascade)
+  comentarios     ComentarioPublicacao[]
+  gostos          GostoPublicacao[]
+
+  @@index([estado, dataPublicacao])
+  @@map("publicacao")
+}
+
+model ComentarioPublicacao {
+  id              Int        @id @default(autoincrement()) @map("id_comentario")
+  idPublicacao    Int        @map("id_publicacao")
+  idAutor         Int        @map("id_autor")
+  conteudo        String     @db.Text
+  estado          String     @default("publicado") @db.VarChar(20) // 'publicado', 'oculto'
+  dataPublicacao  DateTime   @default(now()) @map("data_publicacao") @db.Timestamp
+
+  publicacao      Publicacao @relation(fields: [idPublicacao], references: [id], onDelete: Cascade)
+  autor           Usuario    @relation("AutorComentarioPublicacao", fields: [idAutor], references: [id], onDelete: Cascade)
+
+  @@index([idPublicacao, estado, dataPublicacao])
+  @@map("comentario_publicacao")
+}
+
+model GostoPublicacao {
+  idPublicacao  Int        @map("id_publicacao")
+  idUsuario     Int        @map("id_usuario")
+  dataGosto     DateTime   @default(now()) @map("data_gosto") @db.Timestamp
+
+  publicacao    Publicacao @relation(fields: [idPublicacao], references: [id], onDelete: Cascade)
+  usuario       Usuario    @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idPublicacao, idUsuario])
+  @@map("gosto_publicacao")
+}
+
+model Notificacao {
+  idNotificacao BigInt   @id @default(autoincrement()) @map("id_notificacao")
+  idUsuario     Int      @map("id_usuario")
+  titulo        String   @db.VarChar(150)
+  mensagem      String   @db.Text
+  tipo          String   @default("informacao") @db.VarChar(30)
+  prioridade    String   @default("normal") @db.VarChar(20)
+  lida          Boolean  @default(false)
+  dataEnvio     DateTime @default(now()) @map("data_envio") @db.Timestamp
+
+  usuario       Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("notificacao")
+}
+
+// 8. SISTEMA DE LOGIN E SESSÕES
+
+model LoginSessao {
+  idSessao         BigInt   @id @default(autoincrement()) @map("id_sessao")
+  idUsuario        Int      @map("id_usuario")
+  token            String   @db.VarChar(255)
+  ip               String   @db.VarChar(100)
+  dispositivo      String?  @db.VarChar(255)
+  navegador        String?  @db.VarChar(150)
+  sistemaOperativo String?  @map("sistema_operativo") @db.VarChar(150)
+  ultimoAcesso     DateTime @default(now()) @map("ultimo_acesso") @db.Timestamp
+  expiraEm         DateTime? @map("expira_em") @db.Timestamp
+  ativo            Boolean  @default(true)
+
+  usuario          Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("login_sessao")
+}
+
+// 9. AUDITORIA DO SISTEMA
+
+model AuditoriaSistema {
+  idAuditoria       BigInt   @id @default(autoincrement()) @map("id_auditoria")
+  idUsuario         Int?     @map("id_usuario")
+  acao              String   @db.VarChar(100)
+  tabelaAfetada     String   @map("tabela_afetada") @db.VarChar(100)
+  idRegistroAfetado BigInt?  @map("id_registro_afetado")
+  descricao         String?  @db.Text
+  ip                String?  @db.VarChar(100)
+  dataRegisto       DateTime @default(now()) @map("data_registo") @db.Timestamp
+
+  usuario           Usuario? @relation(fields: [idUsuario], references: [id], onDelete: SetNull)
+
+  @@map("auditoria_sistema")
+}
+
+// 10. HISTÓRICO ACADÉMICO
+
+model HistoricoAcademico {
+  idHistorico  BigInt   @id @default(autoincrement()) @map("id_historico")
+  idEstudante  Int      @map("id_estudante")
+  idDisciplina Int      @map("id_disciplina")
+  anoLectivo   Int      @map("ano_lectivo")
+  notaFinal    Decimal  @map("nota_final") @db.Decimal(5, 2)
+  resultado    String   @db.VarChar(20)
+  observacao   String?  @db.Text
+  dataRegisto  DateTime @default(now()) @map("data_registo") @db.Timestamp
+
+  estudante    Usuario  @relation(fields: [idEstudante], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+
+  @@map("historico_academico")
+}
+
+// 11. MATERIAL DIDÁTICO
+
+model MaterialDidatico {
+  idMaterial     BigInt   @id @default(autoincrement()) @map("id_material")
+  idDisciplina   Int      @map("id_disciplina")
+  idProfessor    Int      @map("id_professor")
+  titulo         String   @db.VarChar(150)
+  descricao      String?  @db.Text
+  tipoMaterial   String   @map("tipo_material") @db.VarChar(30)
+  urlArquivo     String   @map("url_arquivo") @db.VarChar(255)
+  tamanhoArquivo String?  @map("tamanho_arquivo") @db.VarChar(50)
+  dataPublicacao DateTime @default(now()) @map("data_publicacao") @db.Timestamp
+
+  disciplina     Disciplina @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+  professor      Usuario    @relation("ProfessorMaterial", fields: [idProfessor], references: [id], onDelete: Cascade)
+
+  @@map("material_didatico")
+}
+
+// 12. CALENDÁRIO ACADÉMICO
+
+model CalendarioAcademico {
+  idEvento    BigInt   @id @default(autoincrement()) @map("id_evento")
+  titulo      String   @db.VarChar(150)
+  descricao   String?  @db.Text
+  tipoEvento  String   @map("tipo_evento") @db.VarChar(50)
+  dataInicio  DateTime @map("data_inicio") @db.Timestamp
+  dataFim     DateTime? @map("data_fim") @db.Timestamp
+  idCurso     Int?     @map("id_curso")
+  idTurma     Int?     @map("id_turma")
+  criadoPor   Int?     @map("criado_por")
+
+  curso       Curso?   @relation(fields: [idCurso], references: [id], onDelete: SetNull)
+  turma       Turma?   @relation(fields: [idTurma], references: [id], onDelete: SetNull)
+  criador     Usuario? @relation("CriadorEvento", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@map("calendario_academico")
+}
+
+// 13. REUNIÕES E VIDEOCHAMADAS
+
+model ReuniaoVirtual {
+  idReuniao   BigInt   @id @default(autoincrement()) @map("id_reuniao")
+  titulo      String   @db.VarChar(150)
+  descricao   String?  @db.Text
+  idCriador   Int      @map("id_criador")
+  idGrupo     Int?     @map("id_grupo")
+  linkReuniao String?  @map("link_reuniao") @db.VarChar(255)
+  plataforma  String?  @db.VarChar(50)
+  dataInicio  DateTime @map("data_inicio") @db.Timestamp
+  dataFim     DateTime? @map("data_fim") @db.Timestamp
+  status      String   @default("agendada") @db.VarChar(20)
+
+  criador     Usuario  @relation("CriadorReuniao", fields: [idCriador], references: [id], onDelete: Cascade)
+  grupo       Grupo?   @relation(fields: [idGrupo], references: [id], onDelete: SetNull)
+  participantes ReuniaoParticipante[]
+
+  @@map("reuniao_virtual")
+}
+
+// 14. PARTICIPANTES DAS REUNIÕES
+
+model ReuniaoParticipante {
+  idReuniao BigInt   @map("id_reuniao")
+  idUsuario Int      @map("id_usuario")
+  entrouEm  DateTime? @map("entrou_em") @db.Timestamp
+  saiuEm    DateTime? @map("saiu_em") @db.Timestamp
+
+  reuniao   ReuniaoVirtual @relation(fields: [idReuniao], references: [idReuniao], onDelete: Cascade)
+  usuario   Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idReuniao, idUsuario])
+  @@map("reuniao_participante")
+}
+
+// 15. SISTEMA DE PROCTORING AVANÇADO (ANTI-FRAUDE)
+
+model MonitoramentoProva {
+  idMonitoramento        BigInt   @id @default(autoincrement()) @map("id_monitoramento")
+  idTentativa            Int      @map("id_tentativa")
+  perdaFoco              Int      @default(0) @map("perda_foco")
+  tentativasCopia        Int      @default(0) @map("tentativas_copia")
+  mudancasIp             Int      @default(0) @map("mudancas_ip")
+  tempoInatividade       Int      @default(0) @map("tempo_inatividade")
+  webcamAtiva            Boolean  @default(false) @map("webcam_ativa")
+  deteccaoMultiplosRostos Boolean  @default(false) @map("deteccao_multiplos_rostos")
+  nivelSuspeita          String   @default("baixo") @map("nivel_suspeita") @db.VarChar(20) // 'baixo', 'medio', 'alto'
+  bloqueado              Boolean  @default(false)
+  observacao             String?  @db.Text
+
+  tentativa              TentativaAvaliacao @relation(fields: [idTentativa], references: [id], onDelete: Cascade)
+
+  @@map("monitoramento_prova")
+}
+
+// 16. SISTEMA DE RECUPERAÇÃO DE SENHA
+
+model RecuperacaoSenha {
+  idRecuperacao BigInt   @id @default(autoincrement()) @map("id_recuperacao")
+  idUsuario     Int      @map("id_usuario")
+  token         String   @db.VarChar(255)
+  expiraEm      DateTime @map("expira_em") @db.Timestamp
+  utilizado     Boolean  @default(false)
+  dataPedido    DateTime @default(now()) @map("data_pedido") @db.Timestamp
+
+  usuario       Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("recuperacao_senha")
+}
+
+// 17. SISTEMA DE PRESENÇAS
+
+model DiarioAula {
+  id            Int        @id @default(autoincrement()) @map("id_diario")
+  idDocente     Int        @map("id_docente")
+  idDisciplina  Int        @map("id_disciplina")
+  idTurma       Int        @map("id_turma")
+  dataAula      DateTime   @map("data_aula") @db.Date
+  temaAula      String     @map("tema_aula") @db.Text
+  observacao    String?    @db.Text
+  dataRegisto   DateTime   @default(now()) @map("data_registo") @db.Timestamp
+
+  docente       Usuario    @relation("DocenteDiarioAula", fields: [idDocente], references: [id], onDelete: Restrict)
+  disciplina    Disciplina @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+  turma         Turma      @relation(fields: [idTurma], references: [id], onDelete: Cascade)
+
+  @@unique([idDisciplina, idTurma, dataAula])
+  @@index([idDocente, dataAula])
+  @@map("diario_aula")
+}
+model PresencaAula {
+  idPresenca   BigInt   @id @default(autoincrement()) @map("id_presenca")
+  idUsuario    Int      @map("id_usuario")
+  idDisciplina Int      @map("id_disciplina")
+  dataAula     DateTime @map("data_aula") @db.Date
+  presente     Boolean  @default(true)
+  observacao   String?  @db.Text
+
+  usuario      Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [idDisciplina], references: [id], onDelete: Cascade)
+
+  @@map("presenca_aula")
+}
+
+// 18. DASHBOARD E ATIVIDADES
+
+model AtividadeUsuario {
+  idAtividade   BigInt   @id @default(autoincrement()) @map("id_atividade")
+  idUsuario     Int      @map("id_usuario")
+  tipoAtividade String   @map("tipo_atividade") @db.VarChar(100)
+  descricao     String?  @db.Text
+  dataAtividade DateTime @default(now()) @map("data_atividade") @db.Timestamp
+
+  usuario       Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("atividade_usuario")
+}
+
+// 19. SISTEMA DE REPUTAÇÃO ACADÉMICA
+
+model ReputacaoAcademica {
+  idReputacao         BigInt  @id @default(autoincrement()) @map("id_reputacao")
+  idUsuario           Int     @map("id_usuario")
+  pontos              Int     @default(0)
+  nivel               String  @default("iniciante") @db.VarChar(50) // 'iniciante', 'bronze', 'prata', 'ouro'
+  mentoriasRealizadas Int     @default(0) @map("mentorias_realizadas")
+  projetosPublicados  Int     @default(0) @map("projetos_publicados")
+  feedbackPositivo    Int     @default(0) @map("feedback_positivo")
+
+  usuario             Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("reputacao_academica")
+}
+
+// 20. SISTEMA DE ESTÁGIOS E OPORTUNIDADES
+
+model OportunidadeAcademica {
+  idOportunidade BigInt    @id @default(autoincrement()) @map("id_oportunidade")
+  titulo         String    @db.VarChar(150)
+  descricao      String    @db.Text
+  tipo           String    @db.VarChar(50) // 'estagio', 'emprego', 'pesquisa'
+  empresa        String?   @db.VarChar(150)
+  requisitos     String?   @db.Text
+  dataLimite     DateTime? @map("data_limite") @db.Date
+  criadoPor      Int?      @map("criado_por")
+  dataPublicacao DateTime  @default(now()) @map("data_publicacao") @db.Timestamp
+
+  criador        Usuario?  @relation("CriadorOportunidade", fields: [criadoPor], references: [id], onDelete: SetNull)
+  candidaturas   CandidaturaOportunidade[]
+
+  @@map("oportunidade_academica")
+}
+
+// 21. CANDIDATURA ÀS OPORTUNIDADES
+
+model CandidaturaOportunidade {
+  idCandidatura   BigInt   @id @default(autoincrement()) @map("id_candidatura")
+  idOportunidade  BigInt   @map("id_oportunidade")
+  idUsuario       Int      @map("id_usuario")
+  estado          String   @default("pendente") @db.VarChar(30) // 'pendente', 'entrevistado', 'aprovado', 'rejeitado'
+  dataCandidatura DateTime @default(now()) @map("data_candidatura") @db.Timestamp
+
+  oportunidade    OportunidadeAcademica @relation(fields: [idOportunidade], references: [idOportunidade], onDelete: Cascade)
+  usuario         Usuario               @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("candidatura_oportunidade")
+}
+
+// 22. SISTEMA DE SEGUIDORES E ACOMPANHAMENTO
+
+model SeguidorUsuario {
+  idSeguidor  Int      @map("id_seguidor")
+  idSeguido   Int      @map("id_seguido")
+  dataRegisto DateTime @default(now()) @map("data_registo") @db.Timestamp
+
+  seguidor    Usuario  @relation("SeguidorRelacao", fields: [idSeguidor], references: [id], onDelete: Cascade)
+  seguido     Usuario  @relation("SeguidoRelacao", fields: [idSeguido], references: [id], onDelete: Cascade)
+
+  @@id([idSeguidor, idSeguido])
+  @@map("seguidor_usuario")
+}
+
