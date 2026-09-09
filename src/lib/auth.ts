@@ -15,26 +15,31 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         password: { label: "Senha", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.identifier || !credentials?.password) return null;
+        try {
+          if (!credentials?.identifier || !credentials?.password) return null;
 
-        const validacaoCredenciais = validarVariosTextosSeguros([
-          { nome: "identificador", valor: credentials.identifier, obrigatorio: true, maxLength: 120 }
-        ]);
+          const validacaoCredenciais = validarVariosTextosSeguros([
+            { nome: "identificador", valor: credentials.identifier, obrigatorio: true, maxLength: 120 }
+          ]);
 
-        if (!validacaoCredenciais.ok) return null;
+          if (!validacaoCredenciais.ok) return null;
 
-        const user = await AuthRepository.findUserByIdentifier(credentials.identifier as string);
-        if (!user || user.status !== "ativo") return null;
+          const user = await AuthRepository.findUserByIdentifier(credentials.identifier as string);
+          if (!user || user.status !== "ativo") return null;
 
-        const matches = await bcrypt.compare(credentials.password as string, user.senha);
-        if (!matches) return null;
+          const matches = await bcrypt.compare(credentials.password as string, user.senha);
+          if (!matches) return null;
 
-        return {
-          id: String(user.id),
-          name: user.nome,
-          email: user.email,
-          roles: user.perfis.map(p => p.perfil.nomePerfil)
-        };
+          return {
+            id: String(user.id),
+            name: user.nome,
+            email: user.email,
+            roles: user.perfis.map(p => p.perfil.nomePerfil)
+          };
+        } catch (error) {
+          console.error("Erro durante o authorize NextAuth:", error);
+          return null;
+        }
       }
     })
   ]
