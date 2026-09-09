@@ -15,54 +15,73 @@ import {
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const session = await auth();
+  let session = null;
+  try {
+    session = await auth();
+  } catch (err) {
+    console.error("Erro ao verificar sessão na página inicial:", err);
+  }
+
   const usuario = session?.user as { id?: string; name?: string | null; roles?: string[] } | undefined;
   const idUsuario = usuario?.id ? Number(usuario.id) : undefined;
   const roles = usuario?.roles || [];
 
-  // Buscar dados dinâmicos diretamente da base de dados PostgreSQL via Prisma
-  const [publicacoesBrutas, projetosVitrine, oportunidades, seguidosBrutos] = await Promise.all([
-    FeedRepository.listarPublicacoesPublicas(idUsuario),
-    prisma.projetoVitrine.findMany({
-      include: {
-        autores: {
-          include: {
-            usuario: {
-              select: { id: true, nome: true, fotoPerfil: true },
+  let publicacoesBrutas: any[] = [];
+  let projetosVitrine: any[] = [];
+  let oportunidades: any[] = [];
+  let seguidosBrutos: any[] = [];
+
+  try {
+    const [pubRes, projRes, opRes, segRes] = await Promise.all([
+      FeedRepository.listarPublicacoesPublicas(idUsuario).catch(() => []),
+      prisma.projetoVitrine.findMany({
+        include: {
+          autores: {
+            include: {
+              usuario: {
+                select: { id: true, nome: true, fotoPerfil: true },
+              },
             },
           },
+          _count: {
+            select: { curtidores: true },
+          },
         },
-        _count: {
-          select: { curtidores: true },
-        },
-      },
-      orderBy: { dataPublicacao: "desc" },
-      take: 5,
-    }),
-    prisma.oportunidadeAcademica.findMany({
-      orderBy: { dataPublicacao: "desc" },
-      take: 5,
-    }),
-    idUsuario
-      ? prisma.seguidorUsuario.findMany({
-          where: { idSeguidor: idUsuario },
-          select: { idSeguido: true },
-        })
-      : Promise.resolve([]),
-  ]);
+        orderBy: { dataPublicacao: "desc" },
+        take: 5,
+      }).catch(() => []),
+      prisma.oportunidadeAcademica.findMany({
+        orderBy: { dataPublicacao: "desc" },
+        take: 5,
+      }).catch(() => []),
+      idUsuario
+        ? prisma.seguidorUsuario.findMany({
+            where: { idSeguidor: idUsuario },
+            select: { idSeguido: true },
+          }).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    publicacoesBrutas = pubRes || [];
+    projetosVitrine = projRes || [];
+    oportunidades = opRes || [];
+    seguidosBrutos = segRes || [];
+  } catch (dbError) {
+    console.error("Erro ao carregar dados da base de dados:", dbError);
+  }
 
   const seguidosSet = new Set(seguidosBrutos.map((s) => s.idSeguido));
 
   const publicacoes = publicacoesBrutas.map((p) => ({
     ...p,
-    dataPublicacao: p.dataPublicacao.toISOString(),
+    dataPublicacao: typeof p.dataPublicacao === "string" ? p.dataPublicacao : p.dataPublicacao?.toISOString ? p.dataPublicacao.toISOString() : new Date().toISOString(),
     autor: {
       ...p.autor,
       estaAAcompanhar: seguidosSet.has(p.autor.id),
     },
-    comentarios: p.comentarios.map((c) => ({
+    comentarios: (p.comentarios || []).map((c: any) => ({
       ...c,
-      dataPublicacao: c.dataPublicacao.toISOString(),
+      dataPublicacao: typeof c.dataPublicacao === "string" ? c.dataPublicacao : c.dataPublicacao?.toISOString ? c.dataPublicacao.toISOString() : new Date().toISOString(),
     })),
   }));
 
@@ -186,7 +205,7 @@ export default async function HomePage() {
                       <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
                         <span>{proj.autores[0]?.usuario.nome || "Estudante UKV"}</span>
                         <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5">
-                          {proj._count.curtidores} curtidas
+                          {proj._count?.curtidores || 0} curtidas
                         </span>
                       </div>
                     </div>
