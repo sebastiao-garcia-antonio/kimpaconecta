@@ -6,35 +6,29 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import {
   AlertCircle,
+  Eye,
+  EyeOff,
   GraduationCap,
   Loader2,
+  ArrowRight,
   ShieldCheck,
-  Sparkles,
   Users,
   BellRing,
+  BookOpen,
 } from "lucide-react";
+import Image from "next/image";
 
 const destaques = [
-  {
-    icon: <ShieldCheck className="h-4 w-4" />,
-    titulo: "Acesso seguro",
-    descricao: "Login por e-mail ou número de estudante.",
-  },
-  {
-    icon: <Users className="h-4 w-4" />,
-    titulo: "Perfis por papel",
-    descricao: "Administrador, coordenador, docente e estudante.",
-  },
-  {
-    icon: <BellRing className="h-4 w-4" />,
-    titulo: "Notificações",
-    descricao: "Pedidos e aprovações aparecem no painel.",
-  },
+  { icon: <ShieldCheck className="h-5 w-5" />, texto: "Acesso seguro por e-mail ou número de estudante" },
+  { icon: <Users className="h-5 w-5" />, texto: "Perfis para estudante, docente, coordenador e admin" },
+  { icon: <BellRing className="h-5 w-5" />, texto: "Notificações e aprovações em tempo real" },
+  { icon: <BookOpen className="h-5 w-5" />, texto: "Disciplinas, notas e percurso académico num só lugar" },
 ];
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -69,122 +63,155 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,_#f8fafc_0%,_#eef6ff_100%)] px-4 py-8">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-2">
-        <section className="relative overflow-hidden rounded-[2rem] border border-white/60 bg-slate-900 p-8 text-white shadow-2xl shadow-slate-900/10">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(37,99,235,0.22),rgba(16,185,129,0.18))]" />
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-12 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl" />
+    <div className="flex min-h-screen flex-col lg:flex-row">
 
-          <div className="relative space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] text-white/80 backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5" />
-              Universidade Kimpa Vita
-            </div>
+      {/* ── Esquerda: Imagem com overlay ── */}
+      <div className="relative hidden lg:block lg:w-[45%] lg:shrink-0">
+        {/* Imagem de fundo */}
+        <Image
+          src="/registro-hero.jpg"
+          alt="Campus da Universidade Kimpa Vita"
+          width={1200}
+          height={1200}
+          priority
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        {/* Overlay escuro */}
+        <div className="absolute inset-0 bg-slate-900/65" />
 
-            <div className="space-y-4">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-                <GraduationCap className="h-8 w-8" />
-              </div>
-              <h1 className="max-w-md text-3xl font-extrabold tracking-tight sm:text-4xl">
-                Plataforma colaborativa para integração académica
-              </h1>
-              <p className="max-w-lg text-sm leading-6 text-white/75 sm:text-base">
-                Aceda ao seu painel, acompanhe pedidos de acesso, aprovações,
-                disciplinas, notificações e o seu percurso académico num só lugar.
-              </p>
-            </div>
-
-            <div className="grid gap-3">
-              {destaques.map((item) => (
-                <div
-                  key={item.titulo}
-                  className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur"
-                >
-                  <div className="mt-0.5 rounded-xl bg-white/10 p-2 text-white">{item.icon}</div>
-                  <div>
-                    <p className="font-semibold text-white">{item.titulo}</p>
-                    <p className="text-sm text-white/70">{item.descricao}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Conteúdo centralizado sobre a imagem */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-10 text-center text-white">
+          <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+            <GraduationCap className="h-8 w-8 text-white" />
           </div>
-        </section>
+          <h2 className="text-3xl font-extrabold leading-snug">
+            Universidade<br />Kimpa Vita
+          </h2>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/75">
+            Plataforma colaborativa de integração académica para estudantes, docentes e coordenadores.
+          </p>
 
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60">
-          <div className="flex flex-col items-center text-center">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue/10 text-brand-blue">
+          <div className="mt-8 w-full max-w-xs space-y-3">
+            {destaques.map((d, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-left backdrop-blur-sm"
+              >
+                <span className="shrink-0 text-white/80">{d.icon}</span>
+                <span className="text-sm text-white/85">{d.texto}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Direita: Formulário ── */}
+      <div className="flex flex-1 items-center justify-center bg-slate-50 px-4 py-12 lg:px-12">
+        <div className="w-full max-w-sm">
+          {/* Logo (visível só em mobile) */}
+          <div className="mb-8 flex flex-col items-center gap-3 text-center lg:hidden">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue text-white shadow-lg shadow-brand-blue/30">
               <GraduationCap className="h-7 w-7" />
             </div>
-            <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-800">
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-800">Kimpa Connect</h1>
+              <p className="mt-1 text-sm text-slate-500">Universidade Kimpa Vita</p>
+            </div>
+          </div>
+
+          {/* Título do form */}
+          <div className="mb-7">
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">
               Iniciar sessão
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Entre com o e-mail institucional ou número de estudante.
+            <p className="mt-1 text-sm text-slate-500">
+              Entre com o e-mail ou número de estudante.
             </p>
           </div>
 
-          {error && (
-            <div className="mt-6 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+          {/* Card */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+            {error && (
+              <div className="mb-5 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label htmlFor="identificador" className="text-sm font-semibold text-slate-700">E-mail ou número</label>
-              <input
-                id="identificador"
-                type="text"
-                name="identifier"
-                required
-                autoComplete="username"
-                placeholder="ex: admin@kimpa.ao ou EST2026001"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-800 outline-none transition focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="identificador"
+                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                >
+                  E-mail ou número de estudante
+                </label>
+                <input
+                  id="identificador"
+                  type="text"
+                  name="identifier"
+                  required
+                  autoComplete="username"
+                  placeholder="ex: EST2026001 ou admin@kimpa.ao"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-blue focus:bg-white focus:ring-4 focus:ring-brand-blue/10"
+                />
+              </div>
 
-            <div>
-              <label htmlFor="senha" className="text-sm font-semibold text-slate-700">Senha</label>
-              <input
-                id="senha"
-                type="password"
-                name="password"
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-800 outline-none transition focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="senha"
+                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                >
+                  Senha
+                </label>
+                <div className="relative">
+                  <input
+                    id="senha"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-blue focus:bg-white focus:ring-4 focus:ring-brand-blue/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition hover:text-slate-600"
+                    aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3.5 font-semibold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  A entrar...
-                </>
-              ) : (
-                "Entrar no sistema"
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-blue px-4 py-3 text-sm font-bold text-white shadow-md shadow-brand-blue/20 transition hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    A entrar...
+                  </>
+                ) : (
+                  <>
+                    Entrar no sistema
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-700">Ainda não tens conta?</p>
-            <p className="mt-1">
-              Faz o pedido de acesso e aguarda a validação do coordenador.
-            </p>
-            <Link href="/registro" className="mt-3 inline-flex font-semibold text-brand-blue hover:underline">
+          <p className="mt-5 text-center text-sm text-slate-500">
+            Ainda não tens conta?{" "}
+            <Link href="/registro" className="font-semibold text-brand-blue hover:underline">
               Criar pedido de acesso
             </Link>
-          </div>
-        </section>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-﻿import "@/styles/globals.css";
+import "@/styles/globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt" suppressHydrationWarning>
-      <body className={`${inter.className} bg-background text-foreground antialiased`}>
+      <body className={`${inter.className} bg-background text-foreground antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

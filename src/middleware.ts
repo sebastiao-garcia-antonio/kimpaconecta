@@ -13,8 +13,9 @@ export function middleware(req: NextRequest) {
 
   const isPublicRoute = ["/", "/login", "/registro", "/auth-error"].includes(pathname);
   const isApiRoute = pathname.startsWith("/api");
+  const isStaticFile = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$/i.test(pathname);
 
-  if (isApiRoute) {
+  if (isApiRoute || isStaticFile) {
     return NextResponse.next();
   }
 
@@ -32,5 +33,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|uploads).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

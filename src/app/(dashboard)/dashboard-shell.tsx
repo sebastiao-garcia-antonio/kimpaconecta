@@ -16,6 +16,7 @@ import {
   FolderGit2,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageCircle,
   ShieldAlert,
@@ -24,6 +25,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { FiltroAnoAcademicoClient } from "@/features/academic/components/filtro-ano-academico-client";
 import { SocketStatusBadge } from "@/components/common/socket-status-badge";
 
@@ -217,6 +219,15 @@ export function DashboardShell({ role, userName, contextoAcademico, notificacoes
             <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
             <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Terminar sessão"
+            className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400"
+            aria-label="Terminar sessão"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
         <div className="mt-3 border-t border-slate-200/60 pt-2 flex items-center justify-between">
           <SocketStatusBadge />
