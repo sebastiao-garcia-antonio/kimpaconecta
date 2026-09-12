@@ -78,9 +78,9 @@ export function PaginaSecao({
 
         {/* Grelha de Indicadores/Métricas */}
         <div className="grid gap-4 bg-slate-50/40 p-6 md:grid-cols-2 xl:grid-cols-4 lg:p-8">
-          {indicadores.map((indicador) => (
+          {indicadores.map((indicador, index) => (
             <div
-              key={indicador.titulo}
+              key={`indicador-${indicador.titulo || "item"}-${index}`}
               className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-xs transition hover:border-brand-blue/30 hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-3">
@@ -118,9 +118,9 @@ export function PaginaSecao({
 
         <div className="mt-5 space-y-3">
           {resumos.length > 0 ? (
-            resumos.map((resumo) => (
+            resumos.map((resumo, index) => (
               <div
-                key={resumo.titulo}
+                key={`resumo-${resumo.titulo || "item"}-${index}`}
                 className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition hover:border-slate-200 hover:bg-white hover:shadow-xs"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue">

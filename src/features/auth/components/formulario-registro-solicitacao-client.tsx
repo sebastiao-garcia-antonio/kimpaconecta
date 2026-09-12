@@ -275,7 +275,7 @@ export function FormularioRegistroSolicitacaoClient({
         </div>
 
         {/* ── Right: Form panel ── */}
-        <div className="flex flex-1 items-center justify-center px-4 py-10 lg:px-12">
+        <div className="flex flex-1 items-center justify-center px-4 py-5 lg:px-12">
           <div className="w-full max-w-md">
 
             {/* Header */}

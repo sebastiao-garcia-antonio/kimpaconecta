@@ -136,3 +136,178 @@ export async function guardarTurmaServer(idTurma: unknown, dados: DadosTurma) {
     return { error: "Não foi possível guardar a turma." };
   }
 }
+
+type DadosUnidadeOrganica = {
+  nomeUo: unknown;
+  sigla: unknown;
+  localizacao?: unknown;
+};
+
+export async function guardarUnidadeOrganicaServer(idUnidade: unknown, dados: DadosUnidadeOrganica) {
+  const utilizador = await obterUtilizadorAutorizado();
+  if (!utilizador?.administrador) return { error: "Apenas a administração pode gerir unidades académicas." };
+
+  const idExistente = idUnidade ? identificar(idUnidade) : null;
+  const validacaoNome = validarTextoSeguro(dados.nomeUo, "O nome da unidade", { obrigatorio: true, maxLength: 150 });
+  const validacaoSigla = validarTextoSeguro(dados.sigla, "A sigla", { obrigatorio: true, maxLength: 20 });
+  const localizacaoStr = dados.localizacao ? String(dados.localizacao).trim() : null;
+
+  if (!validacaoNome.ok) return { error: validacaoNome.erro };
+  if (!validacaoSigla.ok) return { error: validacaoSigla.erro };
+
+  const repetida = await prisma.unidadeOrganica.findFirst({
+    where: {
+      OR: [
+        { nomeUo: { equals: validacaoNome.valor, mode: "insensitive" } },
+        { sigla: { equals: validacaoSigla.valor, mode: "insensitive" } },
+      ],
+      ...(idExistente ? { id: { not: idExistente } } : {}),
+    },
+    select: { id: true, sigla: true, nomeUo: true },
+  });
+
+  if (repetida) {
+    if (repetida.sigla.toLowerCase() === validacaoSigla.valor.toLowerCase()) {
+      return { error: `Já existe uma unidade com a sigla "${validacaoSigla.valor.toUpperCase()}".` };
+    }
+    return { error: "Já existe uma unidade académica com este nome." };
+  }
+
+  try {
+    if (idExistente) {
+      await prisma.unidadeOrganica.update({
+        where: { id: idExistente },
+        data: {
+          nomeUo: validacaoNome.valor,
+          sigla: validacaoSigla.valor.toUpperCase(),
+          localizacao: localizacaoStr || null,
+        },
+      });
+    } else {
+      await prisma.unidadeOrganica.create({
+        data: {
+          nomeUo: validacaoNome.valor,
+          sigla: validacaoSigla.valor.toUpperCase(),
+          localizacao: localizacaoStr || null,
+        },
+      });
+    }
+    revalidarEstrutura();
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível guardar a unidade académica." };
+  }
+}
+
+export async function eliminarUnidadeOrganicaServer(idUnidade: unknown) {
+  const utilizador = await obterUtilizadorAutorizado();
+  if (!utilizador?.administrador) return { error: "Apenas a administração pode eliminar unidades académicas." };
+
+  const id = identificar(idUnidade);
+  if (!id) return { error: "Identificador de unidade inválido." };
+
+  const cursosCount = await prisma.curso.count({ where: { idUo: id } });
+  if (cursosCount > 0) {
+    return {
+      error: `Não é possível eliminar: esta unidade possui ${cursosCount} curso(s) associado(s). Remova ou transfira os cursos antes de prosseguir.`,
+    };
+  }
+
+  try {
+    await prisma.unidadeOrganica.delete({ where: { id } });
+    revalidarEstrutura();
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível eliminar a unidade académica." };
+  }
+}
+
+export async function eliminarCursoServer(idCurso: unknown) {
+  const utilizador = await obterUtilizadorAutorizado();
+  if (!utilizador?.administrador) return { error: "Apenas a administração pode eliminar cursos." };
+
+  const id = identificar(idCurso);
+  if (!id) return { error: "Identificador de curso inválido." };
+
+  const [turmasCount, disciplinasCount, solicitacoesCount] = await Promise.all([
+    prisma.turma.count({ where: { idCurso: id } }),
+    prisma.disciplina.count({ where: { idCurso: id } }),
+    prisma.solicitacaoAcesso.count({ where: { idCurso: id } }),
+  ]);
+
+  if (turmasCount > 0) {
+    return {
+      error: `Não é possível eliminar: este curso possui ${turmasCount} turma(s) registada(s). Elimine ou altere as turmas primeiro.`,
+    };
+  }
+
+  if (disciplinasCount > 0) {
+    return {
+      error: `Não é possível eliminar: este curso possui ${disciplinasCount} disciplina(s) na grade curricular.`,
+    };
+  }
+
+  if (solicitacoesCount > 0) {
+    return {
+      error: `Não é possível eliminar: existem ${solicitacoesCount} solicitação(ões) de acesso vinculadas a este curso.`,
+    };
+  }
+
+  try {
+    await prisma.curso.delete({ where: { id } });
+    revalidarEstrutura();
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível eliminar o curso." };
+  }
+}
+
+export async function eliminarTurmaServer(idTurma: unknown) {
+  const utilizador = await obterUtilizadorAutorizado();
+  if (!utilizador) return { error: "Não tem permissão para eliminar turmas." };
+
+  const id = identificar(idTurma);
+  if (!id) return { error: "Identificador de turma inválido." };
+
+  const turma = await prisma.turma.findUnique({
+    where: { id },
+    select: { id: true, idCurso: true },
+  });
+  if (!turma) return { error: "Turma não encontrada." };
+
+  if (!(await cursoPermitido(turma.idCurso, utilizador.idUsuario, utilizador.administrador))) {
+    return { error: "Não tem permissão para gerir turmas deste curso." };
+  }
+
+  const [matriculasCount, solicitacoesCount, gruposCount] = await Promise.all([
+    prisma.matricula.count({ where: { idTurma: id } }),
+    prisma.solicitacaoAcesso.count({ where: { idTurma: id } }),
+    prisma.grupo.count({ where: { idTurma: id } }),
+  ]);
+
+  if (matriculasCount > 0) {
+    return {
+      error: `Não é possível eliminar: esta turma possui ${matriculasCount} estudante(s) matriculado(s).`,
+    };
+  }
+
+  if (solicitacoesCount > 0) {
+    return {
+      error: `Não é possível eliminar: existem ${solicitacoesCount} solicitação(ões) de acesso vinculadas a esta turma.`,
+    };
+  }
+
+  if (gruposCount > 0) {
+    return {
+      error: `Não é possível eliminar: existem ${gruposCount} grupo(s) de trabalho vinculados a esta turma.`,
+    };
+  }
+
+  try {
+    await prisma.turma.delete({ where: { id } });
+    revalidarEstrutura();
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível eliminar a turma." };
+  }
+}
