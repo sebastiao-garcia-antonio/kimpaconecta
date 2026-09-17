@@ -17,6 +17,9 @@ export async function candidatarAEstagioServer(idOportunidade: number) {
   const usuario = await obterIdUsuario();
   if (!usuario) return { error: "Sessão inválida." };
 
+  const eStaff = ["admin", "coordenador", "professor"].some((p) => usuario.papeis.includes(p));
+  if (eStaff) return { error: "Apenas estudantes podem submeter candidaturas a oportunidades." };
+
   const idOp = Number(idOportunidade);
   if (!Number.isInteger(idOp) || idOp <= 0) return { error: "Oportunidade inválida." };
 

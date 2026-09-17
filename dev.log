@@ -1,0 +1,35 @@
+
+> kimpa-connect@1.0.0 dev
+> node server.js
+
+
+🚀 Servidor Kimpa Connect + Socket.IO a correr em http://localhost:3000
+
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1294ms (178 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 15.3s (1339 modules)
+ ✓ Compiled in 2.8s (425 modules)
+ GET / 200 in 18763ms
+[Socket.IO] 🔌 Cliente ligado: 1KkyiH_2TO5thEOWAAAB
+[Socket.IO] 👤 Utilizador #2 registado no canal user_2
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 2.2s (1329 modules)
+ GET /api/auth/session 200 in 5306ms
+ GET /api/auth/session 200 in 88ms
+ POST / 200 in 548ms
+ GET / 200 in 132ms
+ ○ Compiling /perfil/[id] ...
+ ✓ Compiled /perfil/[id] in 3s (1364 modules)
+ GET /perfil/3 200 in 5565ms
+ POST /perfil/3 200 in 405ms
+ GET /perfil/3 200 in 89ms
+ POST /perfil/3 200 in 139ms
+ GET /perfil/3 200 in 126ms
+ GET /api/auth/session 200 in 235ms
+ GET /api/auth/session 200 in 48ms
+[Socket.IO] ⚡ Cliente desligado: 1KkyiH_2TO5thEOWAAAB
+[Socket.IO] 🔌 Cliente ligado: -MKTEDYU1A-ufKMwAAAD
+ GET /api/auth/session 200 in 230ms
+ GET /api/auth/session 200 in 27ms
+[Socket.IO] ⚡ Cliente desligado: -MKTEDYU1A-ufKMwAAAD

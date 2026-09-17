@@ -56,6 +56,7 @@ export async function alternarAcompanharUsuarioServer(idSeguido: unknown) {
 
   revalidatePath("/mensagens");
   revalidatePath("/");
+  revalidatePath(`/perfil/${seguido}`);
   return { success: true, seguindo: resultado.seguindo };
 }
 

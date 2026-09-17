@@ -42,14 +42,42 @@ function revalidarFeedENotificacoes() {
   revalidatePath("/notificacoes");
 }
 
-export async function criarPublicacaoServer(conteudo: unknown) {
+function validarUrlAnexo(urlAnexo?: string) {
+  if (!urlAnexo || !urlAnexo.trim()) return null;
+
+  const valor = urlAnexo.trim();
+
+  // Caminho relativo local de uploads (ex: /uploads/publicacoes/...)
+  if (valor.startsWith("/uploads/")) return null;
+
+  try {
+    const url = new URL(valor);
+    return ["http:", "https:"].includes(url.protocol)
+      ? null
+      : "O anexo deve usar um endereço http ou https válido.";
+  } catch {
+    return "Introduza um endereço válido para o anexo.";
+  }
+}
+
+export async function criarPublicacaoServer(conteudo: unknown, urlAnexo?: unknown) {
   const usuario = await obterUsuarioAutenticado();
   if (!usuario) return { erro: "Inicie sessão para publicar na comunidade." };
 
   const validacao = validarTextoSeguro(conteudo, "A publicação", { obrigatorio: true, maxLength: 1200 });
   if (!validacao.ok) return { erro: validacao.erro };
 
-  await prisma.publicacao.create({ data: { idAutor: usuario.idUsuario, conteudo: validacao.valor } });
+  const anexo = typeof urlAnexo === "string" ? urlAnexo.trim() : "";
+  const validaAnexo = validarUrlAnexo(anexo);
+  if (validaAnexo) return { erro: validaAnexo };
+
+  await prisma.publicacao.create({
+    data: {
+      idAutor: usuario.idUsuario,
+      conteudo: validacao.valor,
+      urlImagem: anexo || null,
+    },
+  });
   revalidatePath("/");
   return { sucesso: true };
 }
@@ -84,7 +112,7 @@ export async function alternarGostoPublicacaoServer(idPublicacao: unknown) {
   return { sucesso: true, gostou: !gostoExistente };
 }
 
-export async function criarComentarioPublicacaoServer(idPublicacao: unknown, conteudo: unknown) {
+export async function criarComentarioPublicacaoServer(idPublicacao: unknown, conteudo: unknown, idComentarioPai?: unknown) {
   const usuario = await obterUsuarioAutenticado();
   if (!usuario) return { erro: "Inicie sessão para comentar." };
 
@@ -100,13 +128,49 @@ export async function criarComentarioPublicacaoServer(idPublicacao: unknown, con
   });
   if (!publicacao) return { erro: "A publicação já não está disponível." };
 
-  await prisma.comentarioPublicacao.create({
-    data: { idPublicacao: publicacao.id, idAutor: usuario.idUsuario, conteudo: validacao.valor },
-  });
+  let idPai: number | null = null;
+  if (idComentarioPai !== undefined && idComentarioPai !== null && idComentarioPai !== "") {
+    const paiIdentificador = validarIdentificador(idComentarioPai, "O comentário");
+    if (!paiIdentificador.ok) return { erro: paiIdentificador.erro };
+
+    const comentarioPai = await prisma.comentarioPublicacao.findFirst({
+      where: {
+        id: paiIdentificador.valor,
+        idPublicacao: publicacao.id,
+        estado: "publicado",
+      },
+      select: { id: true, idComentarioPai: true, idAutor: true },
+    });
+    if (!comentarioPai) return { erro: "O comentário ao qual pretendes responder já não está disponível." };
+
+    // Resposta encadeada: liga sempre ao comentário que foi respondido,
+    // permitindo conversas longas dentro de um único fio (como o Facebook).
+    idPai = comentarioPai.id;
+
+    await prisma.comentarioPublicacao.create({
+      data: {
+        idPublicacao: publicacao.id,
+        idAutor: usuario.idUsuario,
+        idComentarioPai: idPai,
+        conteudo: validacao.valor,
+      },
+    });
+    await notificarInteracaoNoFeed(
+      comentarioPai.idAutor,
+      usuario.idUsuario,
+      "Nova resposta ao teu comentário",
+      "Alguém respondeu ao teu comentário na comunidade."
+    );
+  } else {
+    await prisma.comentarioPublicacao.create({
+      data: { idPublicacao: publicacao.id, idAutor: usuario.idUsuario, conteudo: validacao.valor },
+    });
+  }
+
   await notificarInteracaoNoFeed(publicacao.idAutor, usuario.idUsuario, "Novo comentário na publicação", "Recebeu um novo comentário na sua publicação na comunidade.");
 
   revalidarFeedENotificacoes();
-  return { sucesso: true };
+  return { sucesso: true, idComentarioPai: idPai };
 }
 
 export async function ocultarPublicacaoServer(idPublicacao: unknown) {
@@ -134,6 +198,8 @@ export async function criarProjetoVitrineServer(payload: {
   descricao: unknown;
   urlRepositorio?: unknown;
   urlDemonstracao?: unknown;
+  urlImagem?: unknown;
+  urlAnexo?: unknown;
 }) {
   const usuario = await obterUsuarioAutenticado();
   if (!usuario) return { erro: "Inicie sessão para publicar na Vitrine de Projetos." };
@@ -150,12 +216,22 @@ export async function criarProjetoVitrineServer(payload: {
   const validDemo = payload.urlDemonstracao ? validarTextoSeguro(payload.urlDemonstracao, "A demonstração", { maxLength: 255 }) : null;
   if (validDemo && !validDemo.ok) return { erro: validDemo.erro };
 
+  const validImg = typeof payload.urlImagem === "string" ? payload.urlImagem.trim() : "";
+  const validaImg = validarUrlAnexo(validImg);
+  if (validaImg) return { erro: validaImg };
+
+  const validAnexo = typeof payload.urlAnexo === "string" ? payload.urlAnexo.trim() : "";
+  const validaAnexo = validarUrlAnexo(validAnexo);
+  if (validaAnexo) return { erro: validaAnexo };
+
   const projeto = await prisma.projetoVitrine.create({
     data: {
       tituloProjeto: validTitulo.valor,
       descricao: validDesc.valor,
       urlRepositorio: validRepo?.ok ? validRepo.valor : null,
       urlDemonstracao: validDemo?.ok ? validDemo.valor : null,
+      urlImagem: validImg || null,
+      urlAnexo: validAnexo || null,
       autores: {
         create: [
           { idUsuario: usuario.idUsuario }
@@ -166,6 +242,9 @@ export async function criarProjetoVitrineServer(payload: {
 
   revalidatePath("/");
   revalidatePath("/estudante");
+  revalidatePath("/estudante/portfolio");
+  revalidatePath("/professor");
+  revalidatePath("/professor/projects");
   return { sucesso: true, data: projeto };
 }
 

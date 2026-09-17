@@ -258,6 +258,9 @@ export async function autorizarProjetoServer(idProjeto: number, idProfessor: num
   try {
     const updated = await AcademicRepository.authorizeProject(idProjeto, idProfessor);
     revalidatePath("/professor");
+    revalidatePath("/");
+    revalidatePath("/estudante/portfolio");
+    revalidatePath(`/perfil/${idProfessor}`);
     return { success: true, data: updated };
   } catch (error: any) {
     console.error("Error in autorizarProjetoServer:", error);
@@ -275,6 +278,18 @@ export async function criarOportunidadeServer(data: {
   criadoPor: number;
 }) {
   try {
+    const sessao = await auth();
+    const idUsuario = Number(sessao?.user?.id);
+    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
+      return { error: "Sessão inválida." };
+    }
+
+    const papeis = (sessao?.user as { roles?: string[] } | undefined)?.roles || [];
+    const podePublicar = ["admin", "coordenador", "professor"].some((p) => papeis.includes(p));
+    if (!podePublicar) {
+      return { error: "Não tem permissão para publicar oportunidades. Contacte um docente ou coordenador." };
+    }
+
     const validacaoTexto = validarVariosTextosSeguros([
       { nome: "titulo", valor: data.titulo, obrigatorio: true, maxLength: 120 },
       { nome: "descricao", valor: data.descricao, obrigatorio: true, maxLength: 1000 },
@@ -289,9 +304,13 @@ export async function criarOportunidadeServer(data: {
 
     const created = await AcademicRepository.createOpportunity({
       ...data,
+      criadoPor: idUsuario,
       dataLimite: data.dataLimite ? new Date(data.dataLimite) : undefined
     });
     revalidatePath("/professor");
+    revalidatePath("/professor/opportunities");
+    revalidatePath("/estudante/carreiras");
+    revalidatePath("/");
     return { success: true, data: created };
   } catch (error: any) {
     console.error("Error in criarOportunidadeServer:", error);

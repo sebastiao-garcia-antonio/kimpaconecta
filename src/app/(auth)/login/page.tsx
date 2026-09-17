@@ -45,7 +45,6 @@ export default function LoginPage() {
         redirect: false,
         identifier,
         password,
-        callbackUrl: "/login",
       });
 
       if (result?.error || !result?.ok) {
@@ -54,7 +53,39 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace(result.url || "/login");
+      const callbackUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("callbackUrl") : null;
+
+      if (callbackUrl && callbackUrl !== "/login" && callbackUrl.startsWith("/")) {
+        router.replace(callbackUrl);
+        router.refresh();
+        return;
+      }
+
+      // Buscar perfil da sessão para redirecionamento correto
+      try {
+        const resSession = await fetch("/api/auth/session");
+        if (resSession.ok) {
+          const sessionData = await resSession.json();
+          const roles: string[] = sessionData?.user?.roles || [];
+
+          let destino = "/estudante";
+          if (roles.includes("admin")) {
+            destino = "/admin";
+          } else if (roles.includes("coordenador")) {
+            destino = "/coordenador";
+          } else if (roles.includes("professor")) {
+            destino = "/professor";
+          }
+
+          router.replace(destino);
+          router.refresh();
+          return;
+        }
+      } catch (err) {
+        console.error("Erro ao verificar sessão após login:", err);
+      }
+
+      router.replace("/login");
       router.refresh();
     } catch {
       setError("Não foi possível iniciar sessão.");

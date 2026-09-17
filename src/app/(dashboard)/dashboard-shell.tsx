@@ -72,7 +72,8 @@ const navegacaoPorPapel: Record<string, ItemNavegacao[]> = {
     { label: "Avaliações", href: "/estudante/avaliacoes", icon: <FileText className="h-4 w-4" /> },
     { label: "Notas e pautas", href: "/estudante/notas", icon: <FileText className="h-4 w-4" /> },
     { label: "Presenças", href: "/estudante/presencas", icon: <CheckCircle2 className="h-4 w-4" /> },
-    { label: "Grupos", href: "/estudante/grupos", icon: <Users className="h-4 w-4" /> },
+{ label: "Grupos", href: "/estudante/grupos", icon: <Users className="h-4 w-4" /> },
+    { label: "Mentores", href: "/estudante/mentores", icon: <Award className="h-4 w-4" /> },
     { label: "Carreiras", href: "/estudante/carreiras", icon: <Briefcase className="h-4 w-4" />, section: "Oportunidades" },
     { label: "Portfólio", href: "/estudante/portfolio", icon: <Award className="h-4 w-4" /> },
   ],
@@ -83,8 +84,9 @@ const navegacaoPorPapel: Record<string, ItemNavegacao[]> = {
     { label: "Painel", href: "/coordenador", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
     { label: "Cursos", href: "/coordenador/cursos", icon: <Building className="h-4 w-4" />, section: "Gestão académica" },
     { label: "Solicitações", href: "/coordenador/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
-    { label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
+{ label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
     { label: "Turmas", href: "/coordenador/turmas", icon: <Users className="h-4 w-4" /> },
+    { label: "Estudantes", href: "/coordenador/estudantes", icon: <GraduationCap className="h-4 w-4" /> },
     { label: "Relatórios", href: "/coordenador/relatorios", icon: <BarChart2 className="h-4 w-4" />, section: "Indicadores" },
     { label: "Projetos", href: "/coordenador/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
   ],
@@ -100,6 +102,7 @@ const rotulosPapel: Record<string, string> = {
 interface DashboardShellProps {
   role: "admin" | "professor" | "coordenador" | "estudante";
   userName: string;
+  fotoPerfil?: string;
   notificacoesNaoLidas: number;
   contextoAcademico?: {
     anoActual: number | null;
@@ -108,7 +111,7 @@ interface DashboardShellProps {
   children: ReactNode;
 }
 
-export function DashboardShell({ role, userName, contextoAcademico, notificacoesNaoLidas, children }: DashboardShellProps) {
+export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, notificacoesNaoLidas, children }: DashboardShellProps) {
   const [menuMovelAberto, setMenuMovelAberto] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -194,16 +197,18 @@ export function DashboardShell({ role, userName, contextoAcademico, notificacoes
 
   const conteudoLateral = (
     <>
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
-        <div className="rounded-xl bg-gradient-to-tr from-brand-blue to-brand-green p-1.5 text-white shadow-md shadow-brand-blue/20">
-          <GraduationCap className="h-6 w-6" />
-        </div>
-        <div>
-          <span className="text-base font-extrabold tracking-tight text-slate-800">Kimpa Connect</span>
-          <span className="mt-0.5 block w-fit rounded-full bg-brand-blue/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-blue">
-            {rotulosPapel[role]}
-          </span>
-        </div>
+<div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
+        <Link href="/" className="flex items-center gap-3" onClick={() => setMenuMovelAberto(false)} title="Voltar ao início">
+          <div className="rounded-xl bg-gradient-to-tr from-brand-blue to-brand-green p-1.5 text-white shadow-md shadow-brand-blue/20">
+            <GraduationCap className="h-6 w-6" />
+          </div>
+          <div>
+            <span className="text-base font-extrabold tracking-tight text-slate-800">Kimpa Connect</span>
+            <span className="mt-0.5 block w-fit rounded-full bg-brand-blue/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-blue">
+              {rotulosPapel[role]}
+            </span>
+          </div>
+        </Link>
       </div>
 
       <nav aria-label="Navegação principal" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
@@ -211,10 +216,19 @@ export function DashboardShell({ role, userName, contextoAcademico, notificacoes
       </nav>
 
       <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-green text-sm font-bold text-white shadow-md">
-            {userName.substring(0, 2).toUpperCase()}
-          </div>
+<div className="flex items-center gap-3">
+          {fotoPerfil ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={fotoPerfil}
+              alt="Foto de perfil"
+              className="h-10 w-10 shrink-0 rounded-xl border-2 border-brand-blue object-cover shadow-md"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-green text-sm font-bold text-white shadow-md">
+              {userName.substring(0, 2).toUpperCase()}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
             <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
@@ -248,7 +262,7 @@ export function DashboardShell({ role, userName, contextoAcademico, notificacoes
         {conteudoLateral}
       </aside>
 
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md lg:hidden">
+<header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md lg:hidden">
         <button
           type="button"
           onClick={() => setMenuMovelAberto(true)}
@@ -259,10 +273,12 @@ export function DashboardShell({ role, userName, contextoAcademico, notificacoes
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="rounded-lg bg-gradient-to-tr from-brand-blue to-brand-green p-1 text-white">
-          <GraduationCap className="h-4 w-4" />
-        </div>
-        <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
+        <Link href="/" className="flex items-center gap-2" title="Voltar ao início">
+          <div className="rounded-lg bg-gradient-to-tr from-brand-blue to-brand-green p-1 text-white">
+            <GraduationCap className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
+        </Link>
       </header>
 
       <AnimatePresence>

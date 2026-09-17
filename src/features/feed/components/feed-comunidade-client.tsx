@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Loader2, MessageCircle, Send, ShieldOff, Sparkles, UserPlus, UserCheck } from "lucide-react";
+import {
+  Heart,
+  Loader2,
+  MessageCircle,
+  Send,
+  ShieldOff,
+  Sparkles,
+  UserPlus,
+  UserCheck,
+  ImagePlus,
+  X,
+  FileText,
+  Paperclip,
+  CornerUpLeft,
+} from "lucide-react";
 import {
   alternarGostoPublicacaoServer,
   criarComentarioPublicacaoServer,
@@ -18,7 +32,7 @@ type UsuarioAtual = {
   papeis: string[];
 };
 
-type PublicacaoFeed = {
+type ComentarioFeed = {
   id: number;
   conteudo: string;
   dataPublicacao: Date | string;
@@ -26,18 +40,22 @@ type PublicacaoFeed = {
     id: number;
     nome: string;
     fotoPerfil: string | null;
+  };
+  respostas?: ComentarioFeed[];
+};
+
+type PublicacaoFeed = {
+  id: number;
+  conteudo: string;
+  urlImagem: string | null;
+  dataPublicacao: Date | string;
+  autor: {
+    id: number;
+    nome: string;
+    fotoPerfil: string | null;
     estaAAcompanhar?: boolean;
   };
-  comentarios: Array<{
-    id: number;
-    conteudo: string;
-    dataPublicacao: Date | string;
-    autor: {
-      id: number;
-      nome: string;
-      fotoPerfil: string | null;
-    };
-  }>;
+  comentarios: ComentarioFeed[];
   gostos: Array<{
     idUsuario: number;
   }>;
@@ -50,7 +68,10 @@ type PublicacaoFeed = {
 interface FeedComunidadeClientProps {
   publicacoes: PublicacaoFeed[];
   usuarioAtual?: UsuarioAtual;
+  mostrarComposer?: boolean;
 }
+
+const extensoesImagem = /\.(png|jpe?g|webp|gif|svg|bmp)$/i;
 
 function iniciais(nome: string) {
   return nome
@@ -69,11 +90,41 @@ function formatarData(data: Date | string) {
   }).format(new Date(data));
 }
 
-export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunidadeClientProps) {
+function Avatar({ nome, foto, tamanho = "md" }: { nome: string; foto?: string | null; tamanho?: "md" | "sm" }) {
+  const classes = tamanho === "sm" ? "h-7 w-7 rounded-lg text-[10px]" : "h-10 w-10 rounded-xl text-xs";
+
+  if (foto) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={foto} alt={`Foto de ${nome}`} className={`${classes} shrink-0 border border-slate-200 object-cover`} />;
+  }
+
+  return (
+    <div className={`${classes} flex shrink-0 items-center justify-center bg-gradient-to-br from-brand-blue to-brand-green font-black text-white`}>
+      {iniciais(nome)}
+    </div>
+  );
+}
+
+function eImagem(url: string) {
+  return extensoesImagem.test(url.split("?")[0]);
+}
+
+function nomeDoFicheiro(url: string) {
+  const segmentos = url.split("/");
+  return segmentos[segmentos.length - 1];
+}
+
+export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarComposer = true }: FeedComunidadeClientProps) {
   const router = useRouter();
+  const inputFicheiroRef = useRef<HTMLInputElement | null>(null);
+
   const [publicacao, setPublicacao] = useState("");
+  const [anexoPublicacao, setAnexoPublicacao] = useState<{ url: string; nome: string; tipo: string } | null>(null);
+  const [aCarregarAnexo, setACarregarAnexo] = useState(false);
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<number, boolean>>({});
   const [comentarios, setComentarios] = useState<Record<number, string>>({});
+  const [respostasAbertas, setRespostasAbertas] = useState<Record<number, boolean>>({});
+  const [respostas, setRespostas] = useState<Record<number, string>>({});
   const [seguindoEstado, setSeguindoEstado] = useState<Record<number, boolean>>({});
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -90,16 +141,44 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
     setMensagem(null);
 
     iniciarTransicao(async () => {
-      const resposta = await criarPublicacaoServer(publicacao);
+      const resposta = await criarPublicacaoServer(publicacao, anexoPublicacao?.url);
       if (resposta.erro) {
         setErro(resposta.erro);
         return;
       }
 
       setPublicacao("");
+      setAnexoPublicacao(null);
       setMensagem("Publicação partilhada com a comunidade.");
       atualizarFeed();
     });
+  };
+
+  const anexarFicheiro = async (ficheiro: File) => {
+    setErro(null);
+    setMensagem(null);
+    setACarregarAnexo(true);
+
+    try {
+      const dados = new FormData();
+      dados.append("file", ficheiro);
+      dados.append("tipo", "publicacao");
+
+      const resposta = await fetch("/api/upload", { method: "POST", body: dados });
+      const resultado = await resposta.json();
+
+      if (!resposta.ok) {
+        setErro(resultado.error || "Não foi possível anexar o ficheiro.");
+        return;
+      }
+
+      setAnexoPublicacao({ url: resultado.url, nome: resultado.nome || ficheiro.name, tipo: resultado.tipo || "" });
+    } catch {
+      setErro("Erro ao enviar o ficheiro. Tente novamente.");
+    } finally {
+      setACarregarAnexo(false);
+      if (inputFicheiroRef.current) inputFicheiroRef.current.value = "";
+    }
   };
 
   const alternarAcompanhar = (idAutor: number) => {
@@ -151,6 +230,25 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
     });
   };
 
+  const responder = (idPublicacao: number, idComentario: number) => {
+    const conteudo = respostas[idComentario] || "";
+    setErro(null);
+    setMensagem(null);
+
+    iniciarTransicao(async () => {
+      const resposta = await criarComentarioPublicacaoServer(idPublicacao, conteudo, idComentario);
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+
+      setRespostas((estadoActual) => ({ ...estadoActual, [idComentario]: "" }));
+      setRespostasAbertas((estadoActual) => ({ ...estadoActual, [idComentario]: false }));
+      setMensagem("Resposta enviada.");
+      atualizarFeed();
+    });
+  };
+
   const ocultar = (idPublicacao: number) => {
     setErro(null);
     setMensagem(null);
@@ -166,6 +264,74 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
       atualizarFeed();
     });
   };
+
+  const renderizarComentario = (comentario: ComentarioFeed, idPublicacao: number, nivel = 0) => {
+    const respostaAberta = respostasAbertas[comentario.id];
+    const maxRecuo = 4;
+
+    return (
+      <div key={comentario.id} className={`rounded-xl bg-white p-3 ${nivel > 0 ? "ml-3 border-l-2 border-slate-100" : ""}`}>
+        <div className="flex items-center gap-2.5">
+          <Link href={`/perfil/${comentario.autor.id}`} className="shrink-0 transition hover:opacity-80">
+            <Avatar nome={comentario.autor.nome} foto={comentario.autor.fotoPerfil} tamanho="sm" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <Link href={`/perfil/${comentario.autor.id}`} className="text-sm font-bold text-slate-800 hover:text-brand-blue">
+              {comentario.autor.nome}
+            </Link>
+          </div>
+          <span className="text-[11px] text-slate-400">{formatarData(comentario.dataPublicacao)}</span>
+        </div>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{comentario.conteudo}</p>
+
+        {usuarioAtual && (
+          <button
+            type="button"
+            onClick={() => setRespostasAbertas((estadoActual) => ({ ...estadoActual, [comentario.id]: !respostaAberta }))}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-brand-blue"
+          >
+            <CornerUpLeft className="h-3.5 w-3.5" /> Responder
+          </button>
+        )}
+
+        {respostaAberta && usuarioAtual && (
+          <form
+            className="mt-2 flex gap-2"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+              responder(idPublicacao, comentario.id);
+            }}
+          >
+            <label htmlFor={`resposta-${comentario.id}`} className="sr-only">Responder ao comentário</label>
+            <input
+              id={`resposta-${comentario.id}`}
+              value={respostas[comentario.id] || ""}
+              onChange={(evento) => setRespostas((estadoActual) => ({ ...estadoActual, [comentario.id]: evento.target.value }))}
+              maxLength={500}
+              placeholder={`Responder a ${comentario.autor.nome}...`}
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus-visible:outline-brand-blue"
+            />
+            <button
+              type="submit"
+              disabled={pendente || !(respostas[comentario.id] || "").trim()}
+              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Enviar
+            </button>
+          </form>
+        )}
+
+        {comentario.respostas && comentario.respostas.length > 0 && (
+          <div className={`space-y-2 ${nivel >= maxRecuo ? "" : "ml-3 border-l-2 border-slate-100 pl-3"} ${nivel > 0 ? "mt-2" : "mt-2"}`}>
+            {comentario.respostas.map((resposta) => renderizarComentario(resposta, idPublicacao, nivel + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const contarComentariosVisiveis = (comentarios: ComentarioFeed[]): number =>
+    comentarios.reduce((total, comentario) => total + 1 + contarComentariosVisiveis(comentario.respostas || []), 0);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -185,7 +351,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
         {erro && <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{erro}</p>}
       </div>
 
-      {usuarioAtual ? (
+      {usuarioAtual && mostrarComposer ? (
         <form
           className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4"
           onSubmit={(evento) => {
@@ -203,11 +369,67 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
             placeholder="Escreve uma novidade, oportunidade ou conquista académica..."
             className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 focus-visible:outline-brand-blue"
           />
+
+          {anexoPublicacao && (
+            <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              {eImagem(anexoPublicacao.url) ? (
+                <img
+                  src={anexoPublicacao.url}
+                  alt="Pré-visualização do anexo"
+                  className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue">
+                  <FileText className="h-7 w-7" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800">{anexoPublicacao.nome}</p>
+                <p className="text-xs text-slate-500">Anexo pronto para publicar</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAnexoPublicacao(null)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                aria-label="Remover anexo"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-slate-500">{publicacao.length}/1200 caracteres</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">{publicacao.length}/1200 caracteres</span>
+              <span className="text-slate-300">|</span>
+              <input
+                ref={inputFicheiroRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip"
+                className="hidden"
+                onChange={(evento) => {
+                  const ficheiro = evento.target.files?.[0];
+                  if (ficheiro) anexarFicheiro(ficheiro);
+                }}
+              />
+              <button
+                type="button"
+                disabled={aCarregarAnexo || pendente}
+                onClick={() => inputFicheiroRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Anexar imagem ou ficheiro"
+              >
+                {aCarregarAnexo ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-3.5 w-3.5" />
+                )}
+                Anexar
+              </button>
+            </div>
             <button
               type="submit"
-              disabled={pendente || !publicacao.trim()}
+              disabled={pendente || (!publicacao.trim() && !anexoPublicacao)}
               className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pendente ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -239,12 +461,16 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
               <article key={item.id} className="rounded-2xl border border-slate-200 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-green text-xs font-black text-white">
-                      {iniciais(item.autor.nome)}
-                    </div>
+                    <Link href={`/perfil/${item.autor.id}`} className="shrink-0 transition hover:opacity-80">
+                      <Avatar nome={item.autor.nome} foto={item.autor.fotoPerfil} />
+                    </Link>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="truncate font-bold text-slate-800">{item.autor.nome}</h3>
+                        <h3 className="truncate font-bold text-slate-800">
+                          <Link href={`/perfil/${item.autor.id}`} className="hover:text-brand-blue">
+                            {item.autor.nome}
+                          </Link>
+                        </h3>
                         {usuarioAtual && !eProprioAutor && (
                           <button
                             type="button"
@@ -286,6 +512,28 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
 
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700">{item.conteudo}</p>
 
+                {item.urlImagem && (
+                  <div className="mt-3">
+                    {eImagem(item.urlImagem) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.urlImagem}
+                        alt="Anexo da publicação"
+                        className="max-h-96 w-full rounded-2xl border border-slate-100 object-cover"
+                      />
+                    ) : (
+                      <a
+                        href={item.urlImagem}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-brand-blue transition hover:bg-brand-blue/5"
+                      >
+                        <Paperclip className="h-4 w-4" /> {nomeDoFicheiro(item.urlImagem)}
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
                   <button
                     type="button"
@@ -308,19 +556,11 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual }: FeedComunida
 
                 {comentariosVisiveis && (
                   <div className="mt-4 space-y-3 rounded-2xl bg-slate-50 p-4">
-                    {item.comentarios.map((comentario) => (
-                      <div key={comentario.id} className="rounded-xl bg-white p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-bold text-slate-800">{comentario.autor.nome}</p>
-                          <span className="text-[11px] text-slate-400">{formatarData(comentario.dataPublicacao)}</span>
-                        </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-600">{comentario.conteudo}</p>
-                      </div>
-                    ))}
-                    {item._count.comentarios > item.comentarios.length && (
-                      <p className="text-xs text-slate-500">Apenas os três comentários mais recentes são apresentados.</p>
+                    {item.comentarios.map((comentario) => renderizarComentario(comentario, item.id))}
+                    {item._count.comentarios > contarComentariosVisiveis(item.comentarios) && (
+                      <p className="text-xs text-slate-500">Só são apresentados os comentários mais recentes.</p>
                     )}
-                    {item._count.comentarios === 0 && <p className="text-sm text-slate-500">Ainda não existem comentários.</p>}
+                    {item.comentarios.length === 0 && <p className="text-sm text-slate-500">Ainda não existem comentários.</p>}
 
                     {usuarioAtual && (
                       <form

@@ -417,6 +417,8 @@ model ProjetoVitrine {
   descricao              String    @db.Text
   urlRepositorio         String?   @map("url_repositorio") @db.VarChar(255)
   urlDemonstracao        String?   @map("url_demonstracao") @db.VarChar(255)
+  urlImagem              String?   @map("url_imagem") @db.VarChar(255)
+  urlAnexo               String?   @map("url_anexo") @db.VarChar(255)
   dataPublicacao         DateTime  @default(now()) @map("data_publicacao") @db.Timestamp
 
   disciplina             Disciplina? @relation(fields: [idDisciplina], references: [id], onDelete: SetNull)
@@ -470,12 +472,15 @@ model ComentarioPublicacao {
   id              Int        @id @default(autoincrement()) @map("id_comentario")
   idPublicacao    Int        @map("id_publicacao")
   idAutor         Int        @map("id_autor")
+  idComentarioPai Int?       @map("id_comentario_pai")
   conteudo        String     @db.Text
   estado          String     @default("publicado") @db.VarChar(20) // 'publicado', 'oculto'
   dataPublicacao  DateTime   @default(now()) @map("data_publicacao") @db.Timestamp
 
-  publicacao      Publicacao @relation(fields: [idPublicacao], references: [id], onDelete: Cascade)
-  autor           Usuario    @relation("AutorComentarioPublicacao", fields: [idAutor], references: [id], onDelete: Cascade)
+  publicacao      Publicacao             @relation(fields: [idPublicacao], references: [id], onDelete: Cascade)
+  autor           Usuario                @relation("AutorComentarioPublicacao", fields: [idAutor], references: [id], onDelete: Cascade)
+  comentarioPai   ComentarioPublicacao?  @relation("RespostaComentario", fields: [idComentarioPai], references: [id], onDelete: Cascade)
+  respostas       ComentarioPublicacao[] @relation("RespostaComentario")
 
   @@index([idPublicacao, estado, dataPublicacao])
   @@map("comentario_publicacao")

@@ -11,10 +11,10 @@ function ensureDirectoryExists(dirPath) {
 
 // Helper to write file content
 function writeFile(filePath, content) {
-  const dir = path.dirname(filePath);
+  const   dir = path.dirname(filePath);
   ensureDirectoryExists(dir);
   fs.writeFileSync(filePath, content.trim() + '\n', 'utf8');
-  console.log(`Created file: ${filePath}`);
+  console.log(` Created file: ${filePath}`);
 }
 
 const basePath = path.join(__dirname, 'src');

@@ -20,6 +20,141 @@ export class UsersRepository {
     });
   }
 
+  static async obterPerfilPublico(idUsuario: number, idVisitante: number) {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: idUsuario },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        telefone: true,
+        numBi: true,
+        numEstudanteLogin: true,
+        fotoPerfil: true,
+        bio: true,
+        dataCriacao: true,
+        perfis: { select: { perfil: { select: { nomePerfil: true } } } },
+        reputacao: {
+          select: {
+            pontos: true,
+            nivel: true,
+            mentoriasRealizadas: true,
+            projetosPublicados: true,
+            feedbackPositivo: true,
+          },
+        },
+        habilidades: {
+          select: {
+            nivelProficiencia: true,
+            habilidade: {
+              select: { nomeHabilidade: true, competencia: { select: { nomeCompetencia: true } } },
+            },
+          },
+        },
+        cursos: { select: { curso: { select: { nomeCurso: true } } } },
+        matriculas: {
+          select: {
+            anoLectivo: true,
+            isMentor: true,
+            turma: {
+              select: {
+                nomeTurma: true,
+                anoCurricular: true,
+                periodo: true,
+                curso: { select: { nomeCurso: true } },
+              },
+            },
+          },
+        },
+        publicacoesCriadas: {
+          where: { estado: "publicado" },
+          orderBy: { dataPublicacao: "desc" },
+          take: 50,
+          select: {
+            id: true,
+            conteudo: true,
+            urlImagem: true,
+            dataPublicacao: true,
+            _count: { select: { gostos: true, comentarios: true } },
+          },
+        },
+        comentariosCriados: {
+          orderBy: { dataPublicacao: "desc" },
+          take: 20,
+          select: {
+            id: true,
+            conteudo: true,
+            dataPublicacao: true,
+            publicacao: {
+              select: {
+                id: true,
+                conteudo: true,
+                autor: { select: { id: true, nome: true } },
+              },
+            },
+          },
+        },
+        projetosAutor: {
+          include: {
+            projeto: {
+              select: {
+                id: true,
+                tituloProjeto: true,
+                descricao: true,
+                urlRepositorio: true,
+                urlDemonstracao: true,
+                dataPublicacao: true,
+                disciplina: { select: { nomeDisciplina: true } },
+                _count: { select: { curtidores: true } },
+                autores: {
+                  select: { usuario: { select: { id: true, nome: true } } },
+                },
+              },
+            },
+          },
+        },
+        mentorSessoes: { select: { id: true } },
+        alunoSessoes: { select: { id: true } },
+        seguidores: {
+          orderBy: { dataRegisto: "desc" },
+          take: 12,
+          select: { seguidor: { select: { id: true, nome: true, fotoPerfil: true } } },
+        },
+        seguindo: {
+          orderBy: { dataRegisto: "desc" },
+          take: 12,
+          select: { seguido: { select: { id: true, nome: true, fotoPerfil: true } } },
+        },
+        _count: {
+          select: {
+            seguidores: true,
+            seguindo: true,
+            gostosPublicacoes: true,
+          },
+        },
+      },
+    });
+
+    if (!usuario) return null;
+
+    let segue = false;
+    let seguidoPeloVisitante = false;
+    if (idUsuario !== idVisitante && idVisitante > 0) {
+      const [segueResp, seguidoResp] = await Promise.all([
+        prisma.seguidorUsuario.findUnique({
+          where: { idSeguidor_idSeguido: { idSeguidor: idVisitante, idSeguido: idUsuario } },
+        }),
+        prisma.seguidorUsuario.findUnique({
+          where: { idSeguidor_idSeguido: { idSeguidor: idUsuario, idSeguido: idVisitante } },
+        }),
+      ]);
+      segue = !!segueResp;
+      seguidoPeloVisitante = !!seguidoResp;
+    }
+
+    return { ...usuario, segue, seguidoPeloVisitante };
+  }
+
   static async obterPerfilEstudante(idUsuario: number) {
     return prisma.usuario.findUnique({
       where: { id: idUsuario },

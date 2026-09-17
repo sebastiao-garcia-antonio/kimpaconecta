@@ -1921,8 +1921,13 @@ export default function ProfessorDashboardClient({
                       <p className="text-xs text-slate-500 italic py-2">Nenhum projeto pendente.</p>
                     ) : (
                       <div className="space-y-4">
-                        {data.projects?.filter((p: any) => !p.idProfessorAutorizador).map((proj: any) => (
-                          <div key={proj.id} className="p-5 bg-slate-50/60 border border-slate-200 rounded-xl space-y-3">
+{data.projects?.filter((p: any) => !p.idProfessorAutorizador).map((proj: any) => (
+                          <div key={proj.id} className="overflow-hidden p-0 bg-slate-50/60 border border-slate-200 rounded-xl space-y-0">
+                            {proj.urlImagem && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={proj.urlImagem} alt={proj.tituloProjeto} className="h-28 w-full object-cover" />
+                            )}
+                            <div className="p-5 space-y-3">
                             <h5 className="font-bold text-xs text-slate-700">{proj.tituloProjeto}</h5>
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">{proj.disciplina?.nomeDisciplina}</span>
                             <p className="text-slate-450 text-[11px] leading-relaxed line-clamp-3">{proj.descricao}</p>
@@ -1943,6 +1948,16 @@ export default function ProfessorDashboardClient({
                                   GitHub <ExternalLink className="h-3 w-3" />
                                 </a>
                               )}
+                              {proj.urlAnexo && (
+                                <a 
+                                  href={proj.urlAnexo}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 bg-white text-slate-400 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:text-slate-700 transition"
+                                >
+                                  <FileText className="h-3 w-3" /> Documento
+                                </a>
+                              )}
                               <button
                                 onClick={() => handleAuthorizeProject(proj.id)}
                                 disabled={isPending}
@@ -1950,6 +1965,7 @@ export default function ProfessorDashboardClient({
                               >
                                 Autorizar Publicação
                               </button>
+                            </div>
                             </div>
                           </div>
                         ))}
@@ -1966,11 +1982,16 @@ export default function ProfessorDashboardClient({
                       <p className="text-xs text-slate-500 italic py-2">Nenhum projeto publicado ainda.</p>
                     ) : (
                       <div className="space-y-4">
-                        {data.projects?.filter((p: any) => p.idProfessorAutorizador).map((proj: any) => (
-                          <div key={proj.id} className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-3 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-bl-xl text-[9px] font-extrabold uppercase flex items-center gap-1">
+{data.projects?.filter((p: any) => p.idProfessorAutorizador).map((proj: any) => (
+                          <div key={proj.id} className="overflow-hidden p-0 bg-slate-50 border border-slate-200 rounded-xl space-y-0 relative">
+                            <div className="absolute top-0 right-0 z-10 bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-bl-xl text-[9px] font-extrabold uppercase flex items-center gap-1">
                               <Check className="h-3 w-3" /> Publicado
                             </div>
+                            {proj.urlImagem && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={proj.urlImagem} alt={proj.tituloProjeto} className="h-28 w-full object-cover" />
+                            )}
+                            <div className="p-5 space-y-3">
                             <h5 className="font-bold text-xs text-slate-700 pr-16">{proj.tituloProjeto}</h5>
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">{proj.disciplina?.nomeDisciplina}</span>
                             <p className="text-slate-450 text-[11px] leading-relaxed line-clamp-3">{proj.descricao}</p>
@@ -1990,6 +2011,17 @@ export default function ProfessorDashboardClient({
                                 Ver Demonstração Online <ExternalLink className="h-2.5 w-2.5" />
                               </a>
                             )}
+                            {proj.urlAnexo && (
+                              <a 
+                                href={proj.urlAnexo}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-blue hover:underline"
+                              >
+                                <FileText className="h-3 w-3" /> Ver documento do projeto
+                              </a>
+                            )}
+                            </div>
                           </div>
                         ))}
                       </div>

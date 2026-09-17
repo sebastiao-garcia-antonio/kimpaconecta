@@ -27,7 +27,7 @@ const utilizadores = [
     email: "coordenador@kimpa.ao",
     numEstudanteLogin: null,
     perfil: "coordenador",
-  },
+  }, 
   {
     nome: "João Pedro Nkosi",
     email: "estudante@kimpa.ao",

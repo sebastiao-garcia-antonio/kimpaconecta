@@ -31,7 +31,33 @@ function validarNumero(valor: unknown, nome: string, minimo: number, maximo: num
 }
 
 async function cursoPermitido(idCurso: number, idUsuario: number, administrador: boolean) {
-  return prisma.curso.findFirst({ where: administrador ? { id: idCurso } : { id: idCurso, idCoordenador: idUsuario }, select: { id: true } });
+  if (administrador) {
+    return prisma.curso.findFirst({ where: { id: idCurso }, select: { id: true } });
+  }
+
+  const cursosCoordenados = await prisma.curso.findMany({
+    where: {
+      OR: [
+        { idCoordenador: idUsuario },
+        { usuarios: { some: { idUsuario } } },
+      ],
+    },
+    select: { id: true, idUo: true },
+  });
+
+  const uoIds = Array.from(new Set(cursosCoordenados.map((c) => c.idUo)));
+
+  return prisma.curso.findFirst({
+    where: {
+      id: idCurso,
+      OR: [
+        { idCoordenador: idUsuario },
+        { usuarios: { some: { idUsuario } } },
+        ...(uoIds.length > 0 ? [{ idUo: { in: uoIds } }] : []),
+      ],
+    },
+    select: { id: true },
+  });
 }
 
 function revalidarEstrutura() {
@@ -103,6 +129,56 @@ export async function guardarDisciplinaServer(idDisciplina: unknown, dados: Dado
     return { success: true };
   } catch {
     return { error: "Não foi possível guardar a disciplina." };
+  }
+}
+
+export async function eliminarDisciplinaServer(idDisciplina: unknown) {
+  const utilizador = await obterUtilizadorAutorizado();
+  if (!utilizador) return { error: "Não tem permissão para eliminar disciplinas." };
+
+  const id = identificar(idDisciplina);
+  if (!id) return { error: "Identificador de disciplina inválido." };
+
+  const disciplina = await prisma.disciplina.findUnique({
+    where: { id },
+    select: { id: true, idCurso: true, nomeDisciplina: true },
+  });
+  if (!disciplina) return { error: "Disciplina não encontrada." };
+
+  if (!(await cursoPermitido(disciplina.idCurso, utilizador.idUsuario, utilizador.administrador))) {
+    return { error: "Não tem permissão para gerir disciplinas deste curso." };
+  }
+
+  const [avaliacoesCount, historicoCount, materiaisCount] = await Promise.all([
+    prisma.avaliacao.count({ where: { idDisciplina: id } }),
+    prisma.historicoAcademico.count({ where: { idDisciplina: id } }),
+    prisma.materialDidatico.count({ where: { idDisciplina: id } }),
+  ]);
+
+  if (avaliacoesCount > 0) {
+    return {
+      error: `Não é possível eliminar: esta disciplina possui ${avaliacoesCount} avaliação(ões) associada(s).`,
+    };
+  }
+
+  if (historicoCount > 0) {
+    return {
+      error: `Não é possível eliminar: existem registos no histórico académico de estudantes vinculados a esta disciplina.`,
+    };
+  }
+
+  if (materiaisCount > 0) {
+    return {
+      error: `Não é possível eliminar: existem materiais didáticos associados a esta disciplina.`,
+    };
+  }
+
+  try {
+    await prisma.disciplina.delete({ where: { id } });
+    revalidarEstrutura();
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível eliminar a disciplina." };
   }
 }
 

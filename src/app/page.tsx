@@ -10,6 +10,7 @@ import {
   Search,
   Home as HomeIcon,
   FolderGit2,
+  FileText,
 } from "lucide-react";
 
 export const revalidate = 0;
@@ -47,6 +48,7 @@ export default async function HomePage() {
             select: { curtidores: true },
           },
         },
+        where: { idProfessorAutorizador: { not: null } },
         orderBy: { dataPublicacao: "desc" },
         take: 5,
       }).catch(() => []),
@@ -199,14 +201,25 @@ export default async function HomePage() {
               <div className="space-y-3">
                 {projetosVitrine.length > 0 ? (
                   projetosVitrine.map((proj) => (
-                    <div key={proj.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 transition hover:bg-white hover:shadow-xs">
-                      <p className="text-xs font-extrabold text-slate-800">{proj.tituloProjeto}</p>
-                      <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">{proj.descricao}</p>
-                      <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-                        <span>{proj.autores[0]?.usuario.nome || "Estudante UKV"}</span>
-                        <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5">
-                          {proj._count?.curtidores || 0} curtidas
-                        </span>
+                    <div key={proj.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70 transition hover:bg-white hover:shadow-xs">
+                      {proj.urlImagem && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proj.urlImagem} alt={proj.tituloProjeto} className="h-24 w-full object-cover" />
+                      )}
+                      <div className="p-3.5">
+                        <p className="text-xs font-extrabold text-slate-800">{proj.tituloProjeto}</p>
+                        <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">{proj.descricao}</p>
+                        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-400 font-semibold">
+                          <span>{proj.autores[0]?.usuario.nome || "Estudante UKV"}</span>
+                          <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5">
+                            {proj._count?.curtidores || 0} curtidas
+                          </span>
+                        </div>
+                        {proj.urlAnexo && (
+                          <a href={proj.urlAnexo} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-brand-blue hover:underline">
+                            <FileText className="h-3 w-3" /> Ver documento
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))

@@ -12,8 +12,8 @@ export default async function AcademicoAdminPage() {
   const papeis = (sessao.user as any).roles || [];
   if (!papeis.includes("admin")) redirect("/login");
 
-  // Carregar dados de estrutura académica
-  const [unidades, cursos, turmas, coordenadores, totalDisciplinas] = await Promise.all([
+  // Carregar dados de unidades e cursos para a administração
+  const [unidades, cursos, coordenadores, totalDisciplinas, totalTurmas] = await Promise.all([
     prisma.unidadeOrganica.findMany({
       include: {
         _count: {
@@ -32,23 +32,9 @@ export default async function AcademicoAdminPage() {
       },
       orderBy: { nomeCurso: "asc" },
     }),
-    prisma.turma.findMany({
-      include: {
-        curso: {
-          select: {
-            id: true,
-            nomeCurso: true,
-            unidade: { select: { id: true, sigla: true, nomeUo: true } },
-          },
-        },
-        _count: {
-          select: { matriculas: true },
-        },
-      },
-      orderBy: { nomeTurma: "asc" },
-    }),
     obterCoordenadoresDisponiveis(),
     prisma.disciplina.count(),
+    prisma.turma.count(),
   ]);
 
   return (
@@ -56,7 +42,7 @@ export default async function AcademicoAdminPage() {
       <PaginaSecao
         papel="admin"
         titulo="Estrutura académica"
-        descricao="Gestão centralizada de unidades orgânicas, cursos de graduação e turmas curriculares."
+        descricao="Gestão de unidades orgânicas e cursos da Universidade Kimpa Vita. As turmas são geridas pelos respetivos coordenadores de curso."
         indicadores={[
           {
             titulo: "Unidades",
@@ -71,12 +57,12 @@ export default async function AcademicoAdminPage() {
           {
             titulo: "Disciplinas",
             valor: String(totalDisciplinas),
-            observacao: "Currículo geral",
+            observacao: "Grade curricular",
           },
           {
-            titulo: "Turmas",
-            valor: String(turmas.length),
-            observacao: "Em funcionamento",
+            titulo: "Turmas Ativas",
+            valor: String(totalTurmas),
+            observacao: "Geridas na coordenação",
           },
         ]}
         resumos={cursos.slice(0, 4).map((curso) => ({
@@ -90,7 +76,6 @@ export default async function AcademicoAdminPage() {
         <GerenciadorAcademicoTabs
           unidades={unidades}
           cursos={cursos}
-          turmas={turmas}
           coordenadores={coordenadores}
         />
       </div>

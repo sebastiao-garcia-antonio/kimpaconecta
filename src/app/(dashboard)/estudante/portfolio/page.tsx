@@ -25,7 +25,9 @@ export default async function EstudantePortfolioPage() {
       projetosAutor: {
         include: {
           projeto: {
-            include: { _count: { select: { curtidores: true } } },
+            include: {
+              _count: { select: { curtidores: true } },
+            },
           },
         },
       },
@@ -67,8 +69,11 @@ export default async function EstudantePortfolioPage() {
     descricao: pa.projeto.descricao,
     urlRepositorio: pa.projeto.urlRepositorio,
     urlDemonstracao: pa.projeto.urlDemonstracao,
+    urlImagem: pa.projeto.urlImagem,
+    urlAnexo: pa.projeto.urlAnexo,
     totalCurtidas: pa.projeto._count.curtidores,
     dataPublicacao: pa.projeto.dataPublicacao.toISOString(),
+    autorizado: Boolean(pa.projeto.idProfessorAutorizador),
   }));
 
   return (
