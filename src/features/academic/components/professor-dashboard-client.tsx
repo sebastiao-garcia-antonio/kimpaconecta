@@ -16,6 +16,7 @@ import {
   enviarMaterialDidaticoServer, 
   criarReuniaoVirtualServer, 
   atualizarStatusTentativaServer, 
+  registrarAdvertenciaTentativaServer, 
   autorizarProjetoServer, 
   semearDadosSimuladosServer,
   getDashboardData,
@@ -445,9 +446,8 @@ export default function ProfessorDashboardClient({
         titulo: materialTitulo,
         descricao: materialDesc,
         tipoMaterial: materialTipo,
-        urlArquivo: materialUrl,
-        tamanhoArquivo: "3.2 MB" // simulated
-      });
+urlArquivo: materialUrl,
+});
 
       if (res.success) {
         addToast("Material didático partilhado com sucesso!", "success");
@@ -490,7 +490,7 @@ export default function ProfessorDashboardClient({
     });
   };
 
-  // Proctoring Ações: Bloquear/Desbloquear
+// Proctoring Ações: Bloquear/Desbloquear
   const handleUpdateAttemptStatus = (idTentativa: number, status: string) => {
     startTransition(async () => {
       const res = await atualizarStatusTentativaServer(idTentativa, status);
@@ -504,6 +504,19 @@ export default function ProfessorDashboardClient({
         await reloadData();
       } else {
         addToast(res.error || "Erro ao alterar estado", "error");
+      }
+    });
+  };
+
+  // Proctoring Ações: Advertir estudante
+  const handleAdvertirEstudante = (idTentativa: number, estudanteNome?: string) => {
+    startTransition(async () => {
+      const res = await registrarAdvertenciaTentativaServer(idTentativa, estudanteNome || "estudante");
+      if (res.success) {
+        addToast(`Advertência registada para ${estudanteNome || "o estudante"}.`, "success");
+        await reloadData();
+      } else {
+        addToast(res.error || "Erro ao registar advertência", "error");
       }
     });
   };
@@ -528,8 +541,11 @@ export default function ProfessorDashboardClient({
     const agora = new Date();
     return new Date(e.dataInicio) <= agora && new Date(e.dataFim) >= agora;
   }) || [];
-  const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [])
+const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [])
     .filter((t: any) => t.statusTentativa === "em_curso" && t.monitoramento?.nivelSuspeita === "alto") || [];
+
+  const cursosDistintos = new Set(data.disciplines?.map((d: any) => d.cursoNome).filter(Boolean)).size || 0;
+  const turmasDistintas = new Set(data.students?.map((s: any) => s.turmaNome).filter(Boolean)).size || 0;
 
   const unreadNotifications = data.notifications?.filter((n: any) => !n.lida) || [];
 
@@ -687,7 +703,7 @@ export default function ProfessorDashboardClient({
                       <BookOpen className="h-5 w-5" />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-3 font-semibold uppercase">Engenharia Informática</p>
+<p className="text-[10px] text-slate-400 mt-3 font-semibold uppercase">{cursosDistintos} curso(s) associado(s)</p>
                 </div>
 
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl hover:bg-white transition duration-300 relative group overflow-hidden">
@@ -701,7 +717,7 @@ export default function ProfessorDashboardClient({
                       <Users className="h-5 w-5" />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-3 font-semibold uppercase">Turmas de Programação</p>
+                  <p className="text-[10px] text-slate-400 mt-3 font-semibold uppercase">{turmasDistintas} turma(s) vinculada(s)</p>
                 </div>
 
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl hover:bg-white transition duration-300 relative group overflow-hidden">
@@ -723,7 +739,7 @@ export default function ProfessorDashboardClient({
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Reputação de Mentoria</p>
-                      <h3 className="text-3xl font-extrabold mt-2 text-amber-400">{data.reputacao?.pontos || 120} pts</h3>
+                      <h3 className="text-3xl font-extrabold mt-2 text-amber-400">{data.reputacao?.pontos || 0} pts</h3>
                     </div>
                     <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
                       <Award className="h-5 w-5" />
@@ -936,7 +952,7 @@ export default function ProfessorDashboardClient({
                         <div>
                           <span className="text-[10px] bg-slate-850 text-slate-350 font-bold uppercase tracking-widest px-2 py-0.5 rounded-md">Semestre {disc.semestre}º</span>
                           <h4 className="font-bold text-sm text-slate-700 mt-3">{disc.nomeDisciplina}</h4>
-                          <p className="text-[11px] text-slate-500 mt-1">{disc.cursoNome || "Engenharia Informática"}</p>
+                          <p className="text-[11px] text-slate-500 mt-1">{disc.cursoNome || "Curso não associado"}</p>
                         </div>
                         <div className="mt-6 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200/60 pt-4">
                           <span>{disc.alunosCount} Alunos Inscritos</span>
@@ -1674,8 +1690,8 @@ export default function ProfessorDashboardClient({
                                       >
                                         <Lock className="h-3.5 w-3.5" /> Bloquear
                                       </button>
-                                      <button
-                                        onClick={() => addToast(`Aluno ${tent.estudante?.nome} foi advertido.`, "info")}
+<button
+                                        onClick={() => handleAdvertirEstudante(tent.id, tent.estudante?.nome)}
                                         className="flex-1 inline-flex justify-center items-center gap-1.5 border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700 py-2 rounded-xl text-xs font-bold transition"
                                       >
                                         <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Advertir

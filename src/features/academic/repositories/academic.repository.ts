@@ -13,8 +13,20 @@ export function serializeBigInts<T>(data: T): T {
 }
 
 export class AcademicRepository {
-  static async getEntity(id: number) {
-    return { id, status: "ok" };
+static resumirMonitoramento(monitoramentos: any[]) {
+    if (!Array.isArray(monitoramentos) || monitoramentos.length === 0) return null;
+
+    const maisRecente = [...monitoramentos].sort((a, b) => Number(b.idMonitoramento) - Number(a.idMonitoramento))[0];
+
+    return {
+      perdaFoco: maisRecente.perdaFoco || 0,
+      tentativasCopia: maisRecente.tentativasCopia || 0,
+      mudancasIp: maisRecente.mudancasIp || 0,
+      tempoInatividade: maisRecente.tempoInatividade || 0,
+      webcamAtiva: Boolean(maisRecente.webcamAtiva),
+      deteccaoMultiplosRostos: Boolean(maisRecente.deteccaoMultiplosRostos),
+      nivelSuspeita: maisRecente.nivelSuspeita || "baixo",
+    };
   }
 
   static async obterDisciplinasDoDocente(idDocente: number) {
@@ -342,7 +354,7 @@ export class AcademicRepository {
     return serializeBigInts(userCourses);
   }
 
-  // Get all evaluations created by the teacher
+// Get all evaluations created by the teacher
   static async getTeacherEvaluations(idProfessor: number) {
     const evaluations = await prisma.avaliacao.findMany({
       where: { idProfessor },
@@ -367,7 +379,16 @@ export class AcademicRepository {
       },
       orderBy: { dataInicio: "desc" }
     });
-    return serializeBigInts(evaluations);
+
+    const evaluacoesComMonitoramento = evaluations.map((avaliacao: any) => ({
+      ...avaliacao,
+      tentativas: (avaliacao.tentativas || []).map((tentativa: any) => ({
+        ...tentativa,
+        monitoramento: this.resumirMonitoramento(tentativa.monitoramento),
+      })),
+    }));
+
+    return serializeBigInts(evaluacoesComMonitoramento);
   }
 
   // Get teacher virtual meetings
@@ -387,12 +408,12 @@ export class AcademicRepository {
     const rep = await prisma.reputacaoAcademica.findFirst({
       where: { idUsuario: idProfessor }
     });
-    if (!rep) {
+if (!rep) {
       try {
         const newRep = await prisma.reputacaoAcademica.create({
           data: {
             idUsuario: idProfessor,
-            pontos: 120,
+            pontos: 0,
             nivel: "iniciante",
             mentoriasRealizadas: 0,
             projetosPublicados: 0,
@@ -403,7 +424,7 @@ export class AcademicRepository {
       } catch (e) {
         return {
           idUsuario: idProfessor,
-          pontos: 120,
+          pontos: 0,
           nivel: "iniciante",
           mentoriasRealizadas: 0,
           projetosPublicados: 0,

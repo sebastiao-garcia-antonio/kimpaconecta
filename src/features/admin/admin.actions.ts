@@ -39,6 +39,10 @@ async function verificarCoordenadorSolicitacao() {
 // Auxiliar para registrar ações de Auditoria
 async function registrarAuditoria(idUsuario: number, acao: string, tabelaAfetada: string, idRegistroAfetado: number, descricao: string) {
   try {
+    const headers = await import("next/headers").then(({ headers }) => headers());
+    const forwarded = headers.get("x-forwarded-for");
+    const ip = forwarded ? forwarded.split(",")[0].trim() : headers.get("x-real-ip") || "desconhecido";
+
     await prisma.auditoriaSistema.create({
       data: {
         idUsuario,
@@ -46,7 +50,7 @@ async function registrarAuditoria(idUsuario: number, acao: string, tabelaAfetada
         tabelaAfetada,
         idRegistroAfetado: BigInt(idRegistroAfetado),
         descricao,
-        ip: "127.0.0.1"
+        ip
       }
     });
   } catch (e) {
@@ -135,6 +139,197 @@ export async function obterDadosDashboardCompleto() {
     console.error("Erro ao obter dados do dashboard:", error);
     throw new Error("Falha ao carregar dados do painel.");
   }
+}
+
+// 1.1 Obter dados do Dashboard do Coordenador (cursos sob coordenação ou todos para admin)
+export async function obterDadosDashboardCoordenador() {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Não autorizado. Faça login primeiro.");
+  }
+
+  const roles = (session.user as any).roles || [];
+  const ehAdministrador = roles.includes("admin");
+  if (!ehAdministrador && !roles.includes("coordenador")) {
+    throw new Error("Não autorizado. Apenas coordenadores podem executar esta ação.");
+  }
+
+  const idCoordenador = Number(session.user.id);
+
+  const where = ehAdministrador ? undefined : { idCoordenador };
+
+  const cursos = await prisma.curso.findMany({
+    where,
+    include: {
+      unidade: { select: { nomeUo: true, sigla: true } },
+      coordenador: { select: { nome: true } },
+      disciplinas: { select: { id: true } },
+      turmas: { select: { id: true, _count: { select: { matriculas: true } } } },
+    },
+    orderBy: { nomeCurso: "asc" },
+  });
+
+  const disciplinasCursos = await prisma.disciplina.findMany({
+    where: { idCurso: { in: cursos.map((curso) => curso.id) } },
+    select: { id: true, idCurso: true },
+  });
+  const idsDisciplinas = disciplinasCursos.map((disciplina) => disciplina.id);
+
+  const avaliacoesDisciplina = idsDisciplinas.length
+    ? await prisma.avaliacao.findMany({
+        where: { idDisciplina: { in: idsDisciplinas } },
+        select: { id: true, idDisciplina: true, notaMaxima: true },
+      })
+    : [];
+  const avaliacoesPorDisciplina = new Map<number, number[]>();
+  const mapaNotaMaxima = new Map<number, number>();
+  for (const avaliacao of avaliacoesDisciplina) {
+    const lista = avaliacoesPorDisciplina.get(avaliacao.idDisciplina) || [];
+    lista.push(avaliacao.id);
+    avaliacoesPorDisciplina.set(avaliacao.idDisciplina, lista);
+    mapaNotaMaxima.set(avaliacao.id, Number(avaliacao.notaMaxima));
+  }
+
+  const tentativas = idsDisciplinas.length
+    ? await prisma.tentativaAvaliacao.findMany({
+        where: {
+          avaliacao: { idDisciplina: { in: idsDisciplinas } },
+          statusTentativa: { in: ["submetida", "corrigida"] },
+        },
+        select: { idAvaliacao: true, notaObtida: true },
+      })
+    : [];
+
+  const disciplinasPorCurso = new Map<number, number[]>();
+  for (const disciplina of disciplinasCursos) {
+    const lista = disciplinasPorCurso.get(disciplina.idCurso) || [];
+    lista.push(disciplina.id);
+    disciplinasPorCurso.set(disciplina.idCurso, lista);
+  }
+
+  const cursosComEstatisticas = cursos.map((curso) => {
+    const totalEstudantes = curso.turmas.reduce((total, turma) => total + turma._count.matriculas, 0);
+    const idsDisciplinasCurso = disciplinasPorCurso.get(curso.id) || [];
+    const idsAvaliacoesCurso = new Set(
+      idsDisciplinasCurso.flatMap((idDisciplina) => avaliacoesPorDisciplina.get(idDisciplina) || [])
+    );
+    const tentativasComNo = tentativas.filter(
+      (tentativa) =>
+        idsAvaliacoesCurso.has(tentativa.idAvaliacao) &&
+        tentativa.notaObtida !== null &&
+        (mapaNotaMaxima.get(tentativa.idAvaliacao) ?? 0) > 0
+    );
+    const aprovadas = tentativasComNo.filter((tentativa) => {
+      const notaMaxima = mapaNotaMaxima.get(tentativa.idAvaliacao) || 0;
+      return Number(tentativa.notaObtida) >= notaMaxima * 0.5;
+    }).length;
+    const taxaAprovacao = tentativasComNo.length > 0 ? Math.round((aprovadas / tentativasComNo.length) * 100) : 0;
+
+    let estado = "Sem movimentação";
+    if (taxaAprovacao >= 90) estado = "Muito forte";
+    else if (taxaAprovacao >= 80) estado = "Estável";
+    else if (taxaAprovacao >= 60) estado = "Em consolidação";
+    else if (taxaAprovacao > 0) estado = "Necessita atenção";
+
+    return {
+      id: curso.id,
+      nomeCurso: curso.nomeCurso,
+      nomeUo: curso.unidade.nomeUo,
+      siglaUo: curso.unidade.sigla,
+      coordenador: curso.coordenador?.nome || null,
+      totalEstudantes,
+      totalTurmas: curso.turmas.length,
+      totalDisciplinas: idsDisciplinasCurso.length,
+      taxaAprovacao,
+      estado,
+    };
+  });
+
+  const solicitacoes = await prisma.solicitacaoAcesso.findMany({
+    where: { ...(where ? { curso: where } : {}) },
+    orderBy: { dataSolicitacao: "desc" },
+    include: {
+      curso: {
+        select: { nomeCurso: true, idCoordenador: true, unidade: { select: { nomeUo: true } } },
+      },
+      turma: { select: { nomeTurma: true } },
+    },
+  });
+
+  const solicitacoesPendentes = solicitacoes.filter((solicitacao) => solicitacao.status === "pendente");
+  const projetos = await prisma.projetoVitrine.findMany({
+    where: { ...(where ? { disciplina: { idCurso: { in: cursos.map((curso) => curso.id) } } } : {}) },
+    orderBy: { dataPublicacao: "desc" },
+    include: {
+      disciplina: { select: { nomeDisciplina: true, idCurso: true } },
+      professor: { select: { nome: true } },
+      autores: { include: { usuario: { select: { nome: true } } } },
+      _count: { select: { curtidores: true } },
+    },
+  });
+
+  const presencasBrutas = idsDisciplinas.length
+    ? await prisma.presencaAula.findMany({
+        where: { idDisciplina: { in: idsDisciplinas } },
+        select: { presente: true },
+      })
+    : [];
+  const presencasMedias =
+    presencasBrutas.length > 0
+      ? Math.round((presencasBrutas.filter((presenca) => presenca.presente).length / presencasBrutas.length) * 100)
+      : 0;
+
+  const totalEstudantes = cursosComEstatisticas.reduce((total, curso) => total + curso.totalEstudantes, 0);
+  const totalDisciplinas = cursosComEstatisticas.reduce((total, curso) => total + curso.totalDisciplinas, 0);
+  const totalTurmas = cursosComEstatisticas.reduce((total, curso) => total + curso.totalTurmas, 0);
+  const taxaAprovacaoGlobal =
+    cursosComEstatisticas.length > 0
+      ? Math.round(
+          cursosComEstatisticas.reduce((total, curso) => total + curso.taxaAprovacao, 0) / cursosComEstatisticas.length
+        )
+      : 0;
+
+  return {
+    administrador: ehAdministrador,
+    metricas: {
+      totalCursos: cursos.length,
+      totalEstudantes,
+      totalDisciplinas,
+      totalTurmas,
+      totalPendentes: solicitacoesPendentes.length,
+      totalProjetos: projetos.length,
+      taxaAprovacaoGlobal,
+      presencasMedias,
+    },
+    cursos: cursosComEstatisticas,
+    solicitacoesPendentes: solicitacoesPendentes.slice(0, 6).map((solicitacao) => ({
+      id: solicitacao.id,
+      nomeCompleto: solicitacao.nomeCompleto,
+      email: solicitacao.email,
+      numEstudante: solicitacao.numEstudante,
+      status: solicitacao.status,
+      nomeCurso: solicitacao.curso.nomeCurso,
+      nomeUo: solicitacao.curso.unidade.nomeUo,
+      nomeTurma: solicitacao.turma?.nomeTurma || null,
+      dataSolicitacao: solicitacao.dataSolicitacao,
+    })),
+    solicitacoesRecentes: solicitacoes.slice(0, 6).map((solicitacao) => ({
+      id: solicitacao.id,
+      nomeCompleto: solicitacao.nomeCompleto,
+      status: solicitacao.status,
+      nomeCurso: solicitacao.curso.nomeCurso,
+      dataSolicitacao: solicitacao.dataSolicitacao,
+    })),
+    projetos: projetos.slice(0, 6).map((projeto) => ({
+      id: projeto.id,
+      titulo: projeto.tituloProjeto,
+      disciplina: projeto.disciplina?.nomeDisciplina || "Sem disciplina",
+      professor: projeto.professor?.nome || "Sem professor",
+      autorizado: Boolean(projeto.idProfessorAutorizador),
+      gostos: projeto._count.curtidores,
+      autores: projeto.autores.map((autor) => autor.usuario.nome),
+    })),
+  };
 }
 
 // 2. Obter utilizadores e perfis
@@ -535,6 +730,22 @@ export async function processarSolicitacaoAcesso(idSolicitacao: number, aprovado
 }
 
 // 9. Obter painel global de proctoring
+function resumirMonitoramento(monitoramentos: any[]) {
+  if (!Array.isArray(monitoramentos) || monitoramentos.length === 0) return null;
+
+  const maisRecente = [...monitoramentos].sort((a, b) => Number(b.idMonitoramento) - Number(a.idMonitoramento))[0];
+
+  return {
+    perdaFoco: maisRecente.perdaFoco || 0,
+    tentativasCopia: maisRecente.tentativasCopia || 0,
+    mudancasIp: maisRecente.mudancasIp || 0,
+    tempoInatividade: maisRecente.tempoInatividade || 0,
+    webcamAtiva: Boolean(maisRecente.webcamAtiva),
+    deteccaoMultiplosRostos: Boolean(maisRecente.deteccaoMultiplosRostos),
+    nivelSuspeita: maisRecente.nivelSuspeita || "baixo",
+  };
+}
+
 export async function obterPainelProctoringGlobal() {
   await verificarAdmin();
 
@@ -575,7 +786,7 @@ export async function obterPainelProctoringGlobal() {
 
   const totalAtivas = tentativas.filter((tentativa: any) => tentativa.statusTentativa === "em_curso").length;
   const totalBloqueadas = tentativas.filter((tentativa: any) => tentativa.statusTentativa === "bloqueada").length;
-  const totalAlertasAltos = tentativas.filter((tentativa: any) => tentativa.monitoramento?.nivelSuspeita === "alto").length;
+  const totalAlertasAltos = tentativas.filter((tentativa: any) => resumirMonitoramento(tentativa.monitoramento)?.nivelSuspeita === "alto").length;
   return {
     metricas: {
       totalAtivas,
@@ -590,7 +801,7 @@ export async function obterPainelProctoringGlobal() {
       statusTentativa: tentativa.statusTentativa,
       estudante: tentativa.estudante,
       avaliacao: tentativa.avaliacao,
-      monitoramento: tentativa.monitoramento,
+      monitoramento: resumirMonitoramento(tentativa.monitoramento),
       logsSeguranca: tentativa.logsSeguranca.map((log: any) => ({
         id: String(log.id),
         tipoEvento: log.tipoEvento,
@@ -610,11 +821,6 @@ export async function obterPainelProctoringGlobal() {
       statusTentativa: log.tentativa.statusTentativa
     }))
   };
-}
-
-export async function obterLogsSegurancaProctoring() {
-  const painel = await obterPainelProctoringGlobal();
-  return painel.logsRecentes;
 }
 
 // 10. Bloquear/desbloquear tentativa de prova (Proctoring control)
@@ -643,130 +849,6 @@ export async function gerirEstadoTentativaProva(idTentativa: number, status: str
   }
 }
 
-// 11. Cadastrar Unidade Orgânica
-export async function cadastrarUO(data: { nomeUo: string; sigla: string; localizacao?: string }) {
-  const adminUser = await verificarAdmin();
-
-  try {
-    const validacaoTexto = validarVariosTextosSeguros([
-      { nome: "nomeUo", valor: data.nomeUo, obrigatorio: true, maxLength: 120 },
-      { nome: "sigla", valor: data.sigla, obrigatorio: true, maxLength: 20 },
-      { nome: "localizacao", valor: data.localizacao, maxLength: 150 }
-    ]);
-
-    if (!validacaoTexto.ok) {
-      return { error: validacaoTexto.erro };
-    }
-
-
-    const uo = await prisma.unidadeOrganica.create({
-      data: {
-        nomeUo: data.nomeUo,
-        sigla: data.sigla,
-        localizacao: data.localizacao || null
-      }
-    });
-
-    await registrarAuditoria(
-      Number(adminUser.id),
-      "Cadastro Faculdade",
-      "unidadeorganica",
-      uo.id,
-      `Cadastrada faculdade ${uo.nomeUo} (${uo.sigla})`
-    );
-
-    revalidatePath("/admin");
-    return { success: true, data: uo };
-  } catch (error) {
-    return { error: "Erro ao cadastrar Unidade Orgânica." };
-  }
-}
-
-// 12. Cadastrar Curso
-export async function cadastrarCurso(data: { idUo: number; nomeCurso: string }) {
-  const adminUser = await verificarAdmin();
-
-  try {
-    const validacaoTexto = validarVariosTextosSeguros([
-      { nome: "nomeCurso", valor: data.nomeCurso, obrigatorio: true, maxLength: 120 }
-    ]);
-
-    if (!validacaoTexto.ok) {
-      return { error: validacaoTexto.erro };
-    }
-
-    const curso = await prisma.curso.create({
-      data: {
-        idUo: data.idUo,
-        nomeCurso: data.nomeCurso
-      }
-    });
-
-    await registrarAuditoria(
-      Number(adminUser.id),
-      "Cadastro Curso",
-      "ccurso",
-      curso.id,
-      `Cadastrado curso ${curso.nomeCurso}`
-    );
-
-    revalidatePath("/admin");
-    return { success: true, data: curso };
-  } catch (error) {
-    return { error: "Erro ao cadastrar Curso." };
-  }
-}
-
-// 13. Atribuir Coordenador ao Curso
-export async function atribuirCoordenadorCurso(idCurso: number, idCoordenador: number | null) {
-  const adminUser = await verificarAdmin();
-
-  try {
-    await prisma.curso.update({
-      where: { id: idCurso },
-      data: { idCoordenador }
-    });
-
-    await registrarAuditoria(
-      Number(adminUser.id),
-      "Atribuição Coordenador",
-      "ccurso",
-      idCurso,
-      idCoordenador 
-        ? `Atribuído coordenador ID ${idCoordenador} ao curso ID ${idCurso}` 
-        : `Removido coordenador do curso ID ${idCurso}`
-    );
-
-    revalidatePath("/admin");
-    return { success: true };
-  } catch (error) {
-    return { error: "Erro ao atribuir coordenador ao curso." };
-  }
-}
-
-// 14. Obter estrutura académica (UO, Cursos)
-export async function obterEstruturaAcademica() {
-  await verificarAdmin();
-
-  return prisma.unidadeOrganica.findMany({
-    include: {
-      cursos: {
-        include: {
-          coordenador: { select: { id: true, nome: true } },
-          _count: {
-            select: {
-              disciplinas: true,
-              turmas: true,
-              usuarios: true
-            }
-          }
-        }
-      }
-    },
-    orderBy: { nomeUo: "asc" }
-  });
-}
-
 // 15. Obter utilizadores qualificados para coordenador (admin, coordenador)
 export async function obterCoordenadoresDisponiveis() {
   await verificarAdmin();
@@ -784,97 +866,6 @@ export async function obterCoordenadoresDisponiveis() {
     select: { id: true, nome: true, email: true },
     orderBy: { nome: "asc" }
   });
-}
-
-// 16. Cadastrar Disciplina
-export async function cadastrarDisciplina(data: { idCurso: number; nomeDisciplina: string; semestre: number }) {
-  const adminUser = await verificarAdmin();
-
-  try {
-    const validacaoTexto = validarVariosTextosSeguros([
-      { nome: "nomeDisciplina", valor: data.nomeDisciplina, obrigatorio: true, maxLength: 120 }
-    ]);
-
-    if (!validacaoTexto.ok) {
-      return { error: validacaoTexto.erro };
-    }
-
-    const disciplina = await prisma.disciplina.create({
-      data: {
-        idCurso: data.idCurso,
-        nomeDisciplina: data.nomeDisciplina,
-        semestre: data.semestre
-      }
-    });
-
-    await registrarAuditoria(
-      Number(adminUser.id),
-      "Cadastro Disciplina",
-      "disciplina",
-      disciplina.id,
-      `Cadastrada disciplina ${disciplina.nomeDisciplina} (Semestre ${disciplina.semestre})`
-    );
-
-    revalidatePath("/admin");
-    return { success: true, data: disciplina };
-  } catch (error) {
-    return { error: "Erro ao cadastrar disciplina." };
-  }
-}
-
-// 17. Cadastrar Turma
-export async function cadastrarTurma(data: { idCurso: number; nomeTurma: string; anoCurricular: number; periodo: string }) {
-  const adminUser = await verificarAdmin();
-
-  try {
-    const validacaoTexto = validarVariosTextosSeguros([
-      { nome: "nomeTurma", valor: data.nomeTurma, obrigatorio: true, maxLength: 60 },
-      { nome: "periodo", valor: data.periodo, obrigatorio: true, maxLength: 40 }
-    ]);
-
-    if (!validacaoTexto.ok) {
-      return { error: validacaoTexto.erro };
-    }
-
-    const turma = await prisma.turma.create({
-      data: {
-        idCurso: data.idCurso,
-        nomeTurma: data.nomeTurma,
-        anoCurricular: data.anoCurricular,
-        periodo: data.periodo
-      }
-    });
-
-    await registrarAuditoria(
-      Number(adminUser.id),
-      "Cadastro Turma",
-      "turma",
-      turma.id,
-      `Cadastrada turma ${turma.nomeTurma}`
-    );
-
-    revalidatePath("/admin");
-    return { success: true, data: turma };
-  } catch (error) {
-    return { error: "Erro ao cadastrar turma." };
-  }
-}
-
-// 18. Obter disciplinas e turmas
-export async function obterDisciplinasETurmas() {
-  await verificarAdmin();
-
-  const disciplinas = await prisma.disciplina.findMany({
-    include: { curso: { select: { nomeCurso: true } } },
-    orderBy: { nomeDisciplina: "asc" }
-  });
-
-  const turmas = await prisma.turma.findMany({
-    include: { curso: { select: { nomeCurso: true } } },
-    orderBy: { nomeTurma: "asc" }
-  });
-
-  return { disciplinas, turmas };
 }
 
 // 19. Cadastrar Competência e Habilidades

@@ -36,9 +36,10 @@ export default async function PaginaDisciplinasEstudante({ searchParams }: PageP
       : disciplinasTodas;
 
   const totalDisciplinas = disciplinas.length;
-  const mediaPresenca = disciplinas.length
-    ? Math.round(disciplinas.reduce((total: number, disciplina: any) => total + (disciplina.taxaPresenca || 0), 0) / disciplinas.length)
-    : 0;
+  const registosPresenca = disciplinas.filter((disciplina: any) => disciplina.totalPresencas > 0);
+  const mediaPresenca = registosPresenca.length
+    ? Math.round(registosPresenca.reduce((total: number, disciplina: any) => total + (disciplina.taxaPresenca || 0), 0) / registosPresenca.length)
+    : null;
   const turmas = new Set(disciplinas.map((disciplina: any) => disciplina.nomeTurma)).size;
   const cursos = new Set(disciplinas.map((disciplina: any) => disciplina.nomeCurso)).size;
 
@@ -50,14 +51,14 @@ export default async function PaginaDisciplinasEstudante({ searchParams }: PageP
         descricao="Consulta das disciplinas matriculadas, horários e histórico de presença por turma."
         indicadores={[
           { titulo: "Disciplinas", valor: String(totalDisciplinas), observacao: "Matriculadas" },
-          { titulo: "Presença média", valor: `${mediaPresenca}%`, observacao: "Últimos registos" },
+          { titulo: "Presença média", valor: mediaPresenca === null ? "—" : `${mediaPresenca}%`, observacao: "Disciplinas com registos" },
           { titulo: "Turmas", valor: String(turmas), observacao: "Vínculos ativos" },
           { titulo: "Cursos", valor: String(cursos), observacao: "Cobertura académica" },
         ]}
         resumos={disciplinas.slice(0, 3).map((disciplina: any) => ({
           titulo: disciplina.nomeDisciplina,
           descricao: `${disciplina.nomeCurso} · ${disciplina.nomeTurma} · ${disciplina.anoCurricular}º ano · ${disciplina.periodo}`,
-          estado: `${disciplina.taxaPresenca}%`,
+          estado: disciplina.totalPresencas > 0 ? `${disciplina.taxaPresenca}%` : "Sem registos",
         }))}
       />
 
@@ -94,8 +95,8 @@ export default async function PaginaDisciplinasEstudante({ searchParams }: PageP
                   </td>
                   <td className="px-4 py-3">{disciplina.semestre}º semestre</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                      {disciplina.taxaPresenca}%
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${disciplina.totalPresencas > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      {disciplina.totalPresencas > 0 ? `${disciplina.taxaPresenca}%` : "—"}
                     </span>
                   </td>
                 </tr>

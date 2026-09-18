@@ -15,10 +15,27 @@ export default async function ProfessorGroupsPage() {
     redirect("/login");
   }
 
-  // Buscar todos os grupos no sistema
+  // Grupos das disciplinas/turmas do docente (via vínculo aos cursos) + grupos que ele criou
+  const vinculos = await prisma.usuarioCurso.findMany({
+    where: { idUsuario: idUsuario },
+    include: { curso: { select: { id: true } } },
+  });
+  const idsCursos = vinculos.map((vinculo) => vinculo.idCurso);
+
+  const [disciplinasDocente, turmasDocente] = idsCursos.length
+    ? await Promise.all([
+        prisma.disciplina.findMany({ where: { idCurso: { in: idsCursos } }, select: { id: true } }),
+        prisma.turma.findMany({ where: { idCurso: { in: idsCursos } }, select: { id: true } }),
+      ])
+    : [[], []];
+
   const gruposBrutos = await prisma.grupo.findMany({
     where: {
-      tipoGrupo: { in: ["turma", "disciplina", "mentoria", "trabalho"] },
+      OR: [
+        { idCriador: idUsuario },
+        ...(disciplinasDocente.length > 0 ? [{ idDisciplina: { in: disciplinasDocente.map((d) => d.id) } }] : []),
+        ...(turmasDocente.length > 0 ? [{ idTurma: { in: turmasDocente.map((t) => t.id) } }] : []),
+      ],
     },
     include: {
       criador: { select: { id: true, nome: true } },
@@ -49,7 +66,7 @@ export default async function ProfessorGroupsPage() {
     nomeGrupo: g.nomeGrupo,
     tipoGrupo: g.tipoGrupo,
     idCriador: g.idCriador,
-    criadorNome: g.criador?.nome || "UKV",
+    criadorNome: g.criador?.nome || "Utilizador",
     totalMembros: g._count.membros,
     membros: g.membros.map((m) => ({
       idUsuario: m.usuario.id,
@@ -59,6 +76,8 @@ export default async function ProfessorGroupsPage() {
     })),
   }));
 
+  const totalMembros = gruposFormatados.reduce((total, grupo) => total + grupo.totalMembros, 0);
+
   return (
     <div className="space-y-8">
       <PaginaSecao
@@ -66,9 +85,9 @@ export default async function ProfessorGroupsPage() {
         titulo="Gestão de Grupos & Mentoria"
         descricao="Supervisione os grupos de turma, disciplinas, grupos de trabalho e acompanhe os mentores da faculdade."
         indicadores={[
-          { titulo: "Total Grupos", valor: `${gruposFormatados.length}`, observacao: "No sistema" },
+          { titulo: "Total Grupos", valor: `${gruposFormatados.length}`, observacao: "Sob supervisão" },
           { titulo: "Mentores", valor: `${mentores.length}`, observacao: "Designados" },
-          { titulo: "Comunicação", valor: "0 ms", observacao: "Real-time" },
+          { titulo: "Membros", valor: `${totalMembros}`, observacao: "Nos grupos" },
         ]}
         resumos={[
           {

@@ -60,8 +60,19 @@ export default async function DashboardPage() {
   const disciplines = Object.values(disciplinesMap);
   const students = Object.values(studentsMap);
 
+  const cursoAlunosMap: Record<number, number> = {};
+  for (const uc of (courses as any[])) {
+    const curso = uc.curso;
+    if (!curso) continue;
+    let total = 0;
+    for (const turma of curso.turmas) {
+      total += turma.matriculas.length;
+    }
+    cursoAlunosMap[curso.id] = total;
+  }
+
   for (const disc of disciplines) {
-    disc.alunosCount = students.length;
+    disc.alunosCount = cursoAlunosMap[disc.idCurso] || 0;
   }
 
   const initialData = {
@@ -81,17 +92,17 @@ export default async function DashboardPage() {
         papel="professor"
         mostrarVoltar={false}
         titulo="Painel do docente"
-        descricao="Acompanhamento das aulas, avalia??es, grupos e oportunidades ligadas ao teu percurso acad?mico."
+        descricao="Acompanhamento das aulas, avaliações, grupos e oportunidades ligadas ao teu percurso académico."
         indicadores={[
           { titulo: "Disciplinas", valor: String(disciplines.length), observacao: "Associadas ao docente" },
-          { titulo: "Avalia??es", valor: String(evaluations.length), observacao: "Lan?adas" },
+          { titulo: "Avaliações", valor: String(evaluations.length), observacao: "Lançadas" },
           { titulo: "Projectos", valor: String(projects.length), observacao: "Em acompanhamento" },
-          { titulo: "Notifica??es", valor: String(notifications.length), observacao: "?ltimas actualiza??es" },
+          { titulo: "Notificações", valor: String(notifications.length), observacao: "Últimas actualizações" },
         ]}
         resumos={[
-          { titulo: "Reputa??o docente", descricao: "Mant?m o acompanhamento das actividades e da intera??o com os estudantes.", estado: String((reputation as any)?.pontos || 0) },
-          { titulo: "Reuni?es e aulas", descricao: "Os hor?rios e encontros aparecem organizados para gest?o r?pida.", estado: String(meetings.length) },
-          { titulo: "Oportunidades activas", descricao: "Vagas e propostas de colabora??o ligadas ao teu contexto acad?mico.", estado: String(opportunities.length) },
+          { titulo: "Reputação docente", descricao: "Mantém o acompanhamento das actividades e da interação com os estudantes.", estado: String((reputation as any)?.pontos || 0) },
+          { titulo: "Reuniões e aulas", descricao: "Os horários e encontros aparecem organizados para gestão rápida.", estado: String(meetings.length) },
+          { titulo: "Oportunidades activas", descricao: "Vagas e propostas de colaboração ligadas ao teu contexto académico.", estado: String(opportunities.length) },
         ]}
       />
 

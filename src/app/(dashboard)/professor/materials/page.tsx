@@ -15,8 +15,24 @@ export default async function ProfessorMaterialsPage() {
     redirect("/login");
   }
 
-  // Buscar materiais publicados no PostgreSQL
+  // Disciplinas lecionadas pelo docente (via vínculo aos cursos)
+  const vinculos = await prisma.usuarioCurso.findMany({
+    where: { idUsuario: idUsuario },
+    include: { curso: { select: { id: true } } },
+  });
+  const idsCursos = vinculos.map((vinculo) => vinculo.idCurso);
+
+  const disciplinasBrutas = idsCursos.length
+    ? await prisma.disciplina.findMany({
+        where: { idCurso: { in: idsCursos } },
+        select: { id: true, nomeDisciplina: true },
+        orderBy: { nomeDisciplina: "asc" },
+      })
+    : [];
+
+  // Materiais publicados pelo próprio docente
   const materiaisBrutos = await prisma.materialDidatico.findMany({
+    where: { idProfessor: idUsuario },
     include: {
       professor: { select: { nome: true } },
       disciplina: { select: { id: true, nomeDisciplina: true } },
@@ -24,13 +40,9 @@ export default async function ProfessorMaterialsPage() {
     orderBy: { dataPublicacao: "desc" },
   });
 
-  const disciplinasBrutas = await prisma.disciplina.findMany({
-    select: { id: true, nomeDisciplina: true },
-    orderBy: { nomeDisciplina: "asc" },
-  });
-
   const materiaisFormatados: MaterialItem[] = materiaisBrutos.map((m) => ({
     id: Number(m.idMaterial),
+    idDisciplina: m.idDisciplina,
     titulo: m.titulo,
     descricao: m.descricao,
     tipoMaterial: m.tipoMaterial,
@@ -41,6 +53,10 @@ export default async function ProfessorMaterialsPage() {
     disciplinaNome: m.disciplina.nomeDisciplina,
   }));
 
+  const dataUltimaPublicacao = materiaisBrutos[0]?.dataPublicacao
+    ? new Intl.DateTimeFormat("pt-PT", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(materiaisBrutos[0].dataPublicacao))
+    : null;
+
   return (
     <div className="space-y-8">
       <PaginaSecao
@@ -50,7 +66,7 @@ export default async function ProfessorMaterialsPage() {
         indicadores={[
           { titulo: "Ficheiros Publicados", valor: `${materiaisFormatados.length}`, observacao: "PDFs & Sebentas" },
           { titulo: "Disciplinas", valor: `${disciplinasBrutas.length}`, observacao: "Vinculadas" },
-          { titulo: "Acesso", valor: "Imediato", observacao: "Para a comunidade" },
+          { titulo: "Última publicação", valor: dataUltimaPublicacao || "—", observacao: "Data do ficheiro mais recente" },
         ]}
         resumos={[
           {

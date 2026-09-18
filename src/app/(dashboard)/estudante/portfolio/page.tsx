@@ -43,11 +43,11 @@ export default async function EstudantePortfolioPage() {
   });
 
   const reputacaoObj = estudante.reputacao[0] || {
-    pontos: 150,
-    nivel: "bronze",
-    mentoriasRealizadas: 2,
-    projetosPublicados: estudante.projetosAutor.length,
-    feedbackPositivo: 5,
+    pontos: 0,
+    nivel: "iniciante",
+    mentoriasRealizadas: 0,
+    projetosPublicados: 0,
+    feedbackPositivo: 0,
   };
 
   const habilidadesFormatadas: HabilidadeItem[] = estudante.habilidades.map((h) => ({
@@ -106,7 +106,7 @@ export default async function EstudantePortfolioPage() {
             numBi: estudante.numBi,
             fotoPerfil: estudante.fotoPerfil,
             bio: estudante.bio,
-            cursoNome: estudante.cursos[0]?.curso.nomeCurso || "Engenharia / UKV",
+            cursoNome: estudante.cursos[0]?.curso.nomeCurso || "Curso não atribuído",
           }}
           reputacao={{
             pontos: reputacaoObj.pontos,

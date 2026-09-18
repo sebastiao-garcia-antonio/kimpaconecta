@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PaginaSecao } from "@/components/pagina-seccao";
 import { obterProjetosVitrineAdmin } from "@/features/admin/admin.actions";
+import { GestaoProjetosAdminClient } from "@/features/admin/components/gestao-projetos-admin-client";
 
 export default async function ProjetosAdminPage() {
   const sessao = await auth();
@@ -27,7 +28,7 @@ export default async function ProjetosAdminPage() {
           { titulo: "Autores", valor: String(projetos.reduce((total: number, projeto: any) => total + (projeto.autores?.length || 0), 0)), observacao: "Participantes" },
         ]}
         resumos={projetos.slice(0, 4).map((projeto: any) => ({
-          titulo: projeto.titulo,
+          titulo: projeto.tituloProjeto,
           descricao: `${projeto.disciplina?.nomeDisciplina || "Sem disciplina"} · ${projeto.professor?.nome || "Sem professor"}`,
           estado: projeto.idProfessorAutorizador ? "Aprovado" : "Pendente",
         }))}
@@ -35,33 +36,23 @@ export default async function ProjetosAdminPage() {
 
       <div className="px-6 lg:px-8">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-black text-slate-900">Projetos em destaque</h3>
-              <p className="mt-1 text-sm text-slate-500">Lista resumida para revisão e publicação.</p>
-            </div>
+          <div className="mb-5">
+            <h3 className="text-lg font-black text-slate-900">Projetos em destaque</h3>
+            <p className="mt-1 text-sm text-slate-500">Aprovar projetos para publicação ou remover a autorização da vitrine pública.</p>
           </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {projetos.map((projeto: any) => (
-              <div key={projeto.id} className="rounded-2xl border border-slate-200 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-base font-bold text-slate-800">{projeto.titulo}</h4>
-                    <p className="mt-1 text-xs text-slate-500">{projeto.disciplina?.nomeDisciplina || "Sem disciplina"}</p>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${projeto.idProfessorAutorizador ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                    {projeto.idProfessorAutorizador ? "Aprovado" : "Pendente"}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-slate-600 line-clamp-3">{projeto.descricao}</p>
-              </div>
-            ))}
-          </div>
+          <GestaoProjetosAdminClient
+            projetos={projetos.map((projeto: any) => ({
+              id: projeto.id,
+              titulo: projeto.tituloProjeto,
+              descricao: projeto.descricao,
+              idProfessorAutorizador: projeto.idProfessorAutorizador,
+              disciplina: projeto.disciplina ? { nomeDisciplina: projeto.disciplina.nomeDisciplina } : null,
+              professor: projeto.professor ? { nome: projeto.professor.nome } : null,
+              autores: projeto.autores?.map((autor: any) => ({ usuario: { nome: autor.usuario.nome } })),
+            }))}
+          />
         </div>
       </div>
     </div>
   );
 }
-
-

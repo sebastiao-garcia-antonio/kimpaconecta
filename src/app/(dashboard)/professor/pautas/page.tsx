@@ -27,18 +27,30 @@ export default async function PaginaPautasProfessor({
   const query = await searchParams;
 
   // Buscar disciplinas ativas para o docente
-  const disciplinasDocente = await prisma.disciplina.findMany({
-    orderBy: { nomeDisciplina: "asc" },
-    select: { id: true, nomeDisciplina: true, idCurso: true, curso: { select: { nomeCurso: true } } },
+  const vinculos = await prisma.usuarioCurso.findMany({
+    where: { idUsuario: idUsuario },
+    include: { curso: { select: { id: true } } },
   });
+  const idsCursos = vinculos.map((vinculo) => vinculo.idCurso);
 
-  const idDisciplinaSelecionada = query.disciplina
-    ? Number(query.disciplina)
-    : disciplinasDocente[0]?.id || 1;
+  // Disciplinas lecionadas pelo docente (vínculo aos cursos)
+  const disciplinasDocente = idsCursos.length
+    ? await prisma.disciplina.findMany({
+        where: { idCurso: { in: idsCursos } },
+        select: { id: true, nomeDisciplina: true, idCurso: true, curso: { select: { nomeCurso: true } } },
+        orderBy: { nomeDisciplina: "asc" },
+      })
+    : [];
 
+  const idDisciplinaSelecionada = query.disciplina ? Number(query.disciplina) : undefined;
   const idTurmaSelecionada = query.turma ? Number(query.turma) : undefined;
 
-  const pauta = await ReportsRepository.obterPautaDisciplina(idDisciplinaSelecionada, idTurmaSelecionada);
+  const disciplinaEscolhida = idDisciplinaSelecionada
+    ? disciplinasDocente.find((disciplina) => disciplina.id === idDisciplinaSelecionada)
+    : undefined;
+  const pauta = disciplinaEscolhida
+    ? await ReportsRepository.obterPautaDisciplina(disciplinaEscolhida.id, idTurmaSelecionada)
+    : null;
 
   return (
     <div className="space-y-8">

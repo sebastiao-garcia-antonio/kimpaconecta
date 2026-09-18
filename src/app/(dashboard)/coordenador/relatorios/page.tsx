@@ -16,9 +16,14 @@ export default async function PaginaRelatoriosCoordenador() {
     redirect("/login");
   }
 
-  const resumo = await AnalyticsRepository.obterResumoAcademico();
+  const idCoordenador = papeis.includes("coordenador") ? Number(sessao.user.id) : undefined;
+
+  const resumo = await AnalyticsRepository.obterResumoAcademico(idCoordenador);
 
   const candidaturasRecentes = await prisma.candidaturaOportunidade.findMany({
+    where: idCoordenador
+      ? { oportunidade: { criadoPor: idCoordenador } }
+      : undefined,
     include: {
       oportunidade: {
         include: {
@@ -44,6 +49,9 @@ export default async function PaginaRelatoriosCoordenador() {
   });
 
   const avaliacoesRecentes = await prisma.avaliacao.findMany({
+    where: idCoordenador
+      ? { disciplina: { curso: { idCoordenador } } }
+      : undefined,
     include: {
       disciplina: {
         include: {
@@ -56,16 +64,28 @@ export default async function PaginaRelatoriosCoordenador() {
     take: 5,
   });
 
-  const presencasPorDisciplina = await prisma.presencaAula.groupBy({
+  const presencasAgrupadas = await prisma.presencaAula.groupBy({
     by: ["idDisciplina"],
     _count: {
       idPresenca: true,
     },
+    where: idCoordenador
+      ? { disciplina: { curso: { idCoordenador } } }
+      : undefined,
     orderBy: {
-      idDisciplina: "asc",
+      _count: { idPresenca: "desc" },
     },
     take: 5,
   });
+
+  const idsDisciplinasPresenca = presencasAgrupadas.map((item) => item.idDisciplina);
+  const disciplinasPresenca = idsDisciplinasPresenca.length
+    ? await prisma.disciplina.findMany({
+        where: { id: { in: idsDisciplinasPresenca } },
+        select: { id: true, nomeDisciplina: true },
+      })
+    : [];
+  const nomesDisciplina = new Map(disciplinasPresenca.map((disciplina) => [disciplina.id, disciplina.nomeDisciplina]));
 
   return (
     <div className="space-y-8">
@@ -82,7 +102,7 @@ export default async function PaginaRelatoriosCoordenador() {
         resumos={resumo.desempenhoPorCurso.slice(0, 3).map((curso: any) => ({
           titulo: curso.nomeCurso,
           descricao: `${curso.totalDisciplinas} disciplina(s) · ${curso.totalTurmas} turma(s) · ${curso.totalEstudantes} estudante(s)`,
-          estado: "Atualizado",
+          estado: `${curso.totalAvaliacoes} avaliação(ões)`,
         }))}
       />
 
@@ -97,7 +117,7 @@ export default async function PaginaRelatoriosCoordenador() {
                     <div>
                       <h4 className="font-semibold text-slate-800">{curso.nomeCurso}</h4>
                       <p className="text-sm text-slate-500">
-                        {curso.totalDisciplinas} disciplina(s) · {curso.totalTurmas} turma(s)
+                        {curso.totalAvaliacoes} avaliação(ões) · {curso.totalPresencas} presença(s)
                       </p>
                     </div>
                     <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-xs font-semibold text-brand-blue">
@@ -106,6 +126,11 @@ export default async function PaginaRelatoriosCoordenador() {
                   </div>
                 </div>
               ))}
+              {resumo.desempenhoPorCurso.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                  Não existem cursos para apresentar.
+                </p>
+              )}
             </div>
           </div>
 
@@ -136,54 +161,74 @@ export default async function PaginaRelatoriosCoordenador() {
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-bold text-lg text-slate-800 mb-5">Candidaturas recentes</h3>
             <div className="space-y-3">
-              {candidaturasRecentes.map((candidatura) => (
-                <div key={candidatura.idCandidatura.toString()} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4">
-                  <div>
-                    <h4 className="font-semibold text-slate-800">{candidatura.usuario.nome}</h4>
-                    <p className="text-sm text-slate-500">
-                      {candidatura.oportunidade.titulo} · {candidatura.oportunidade.empresa || "Sem empresa"}
-                    </p>
+              {candidaturasRecentes.length > 0 ? (
+                candidaturasRecentes.map((candidatura) => (
+                  <div key={candidatura.idCandidatura.toString()} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4">
+                    <div>
+                      <h4 className="font-semibold text-slate-800">{candidatura.usuario.nome}</h4>
+                      <p className="text-sm text-slate-500">
+                        {candidatura.oportunidade.titulo} · {candidatura.oportunidade.empresa || "Sem empresa"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                      {candidatura.estado}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                    {candidatura.estado}
-                  </span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                  Sem candidaturas registadas.
+                </p>
+              )}
             </div>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-bold text-lg text-slate-800 mb-5">Avaliações recentes</h3>
             <div className="space-y-3">
-              {avaliacoesRecentes.map((avaliacao) => (
-                <div key={avaliacao.id} className="rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold text-slate-800">{avaliacao.titulo}</h4>
-                      <p className="text-sm text-slate-500">
-                        {avaliacao.disciplina.nomeDisciplina} · {avaliacao.disciplina.curso.nomeCurso}
-                      </p>
+              {avaliacoesRecentes.length > 0 ? (
+                avaliacoesRecentes.map((avaliacao) => (
+                  <div key={avaliacao.id} className="rounded-2xl border border-slate-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-semibold text-slate-800">{avaliacao.titulo}</h4>
+                        <p className="text-sm text-slate-500">
+                          {avaliacao.disciplina.nomeDisciplina} · {avaliacao.disciplina.curso.nomeCurso}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-xs font-semibold text-brand-blue">
+                        {avaliacao.tentativas.length} tentativa(s)
+                      </span>
                     </div>
-                    <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-xs font-semibold text-brand-blue">
-                      {avaliacao.tentativas.length} tentativa(s)
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                  Sem avaliações registadas.
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <h3 className="font-bold text-lg text-slate-800 mb-5">Presenças por disciplina</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-            {presencasPorDisciplina.map((item) => (
-              <div key={item.idDisciplina} className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Disciplina {item.idDisciplina}</p>
-                <p className="mt-2 text-2xl font-extrabold text-slate-800">{item._count.idPresenca}</p>
-              </div>
-            ))}
-          </div>
+          {presencasAgrupadas.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+              {presencasAgrupadas.map((item) => (
+                <div key={item.idDisciplina} className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    {nomesDisciplina.get(item.idDisciplina) || `Disciplina ${item.idDisciplina}`}
+                  </p>
+                  <p className="mt-2 text-2xl font-extrabold text-slate-800">{item._count.idPresenca}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+              Não existem registos de presença.
+            </p>
+          )}
         </div>
       </div>
     </div>

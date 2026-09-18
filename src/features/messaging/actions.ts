@@ -72,8 +72,21 @@ export async function enviarMensagemDiretaServer(idGrupo: unknown, conteudo: unk
   const conversa = await MessagingRepository.obterConversaDireta(grupo, idUsuario);
   if (!conversa) return { error: "Não tem acesso a esta conversa." };
 
-  await MessagingRepository.criarMensagemDireta(conversa.id, idUsuario, validacao.valor);
+  const mensagem = await MessagingRepository.criarMensagemDireta(conversa.id, idUsuario, validacao.valor);
   const destinatario = conversa.membros.find((membro) => membro.idUsuario !== idUsuario)?.idUsuario;
+
+  const io = (global as any)?.io as { to: (sala: string) => { emit: (evento: string, dados: unknown) => void } } | undefined;
+
+  if (io) {
+    io.to(`room_${conversa.id}`).emit("new_message", {
+      id: mensagem.id,
+      idGrupo: conversa.id,
+      conteudo: validacao.valor,
+      idEmissor: idUsuario,
+      emissorNome: mensagem.emissor?.nome || null,
+      criadoEm: new Date().toISOString(),
+    });
+  }
 
   if (destinatario) {
     try {
@@ -84,6 +97,18 @@ export async function enviarMensagemDiretaServer(idGrupo: unknown, conteudo: unk
         tipo: "mensagem",
         prioridade: "normal",
       });
+
+      if (io) {
+        io.to(`user_${destinatario}`).emit("new_notification", {
+          id: Date.now(),
+          titulo: "Nova mensagem",
+          mensagem: "Recebeu uma nova mensagem privada no Kimpa Connect.",
+          tipo: "mensagem",
+          prioridade: "normal",
+          criadoEm: new Date().toISOString(),
+          lida: false,
+        });
+      }
     } catch {
       // A mensagem permanece enviada mesmo que a notificação não possa ser entregue.
     }

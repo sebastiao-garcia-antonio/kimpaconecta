@@ -46,10 +46,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     estado: notificacao.lida ? "Lida" : "Nova",
   }));
 
-  const totalDisciplinas = disciplinas.length;
-  const mediaPresenca = disciplinas.length
-    ? Math.round(disciplinas.reduce((total: number, disciplina: any) => total + (disciplina.taxaPresenca || 0), 0) / disciplinas.length)
-    : 0;
+const totalDisciplinas = disciplinas.length;
+  const registosPresenca = disciplinas.filter((disciplina: any) => disciplina.totalPresencas > 0);
+  const mediaPresenca = registosPresenca.length
+    ? Math.round(registosPresenca.reduce((total: number, disciplina: any) => total + (disciplina.taxaPresenca || 0), 0) / registosPresenca.length)
+    : null;
   const totalHistorico = filtroAno === "historico" ? historico.length : historico.filter((item: any) => item.anoLectivo === anoAtivo).length;
   const naoLidas = notificacoes.filter((notificacao: any) => !notificacao.lida).length;
 
@@ -62,7 +63,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         descricao="Acompanha o teu percurso por ano, as disciplinas activas, notas e alertas do sistema."
         indicadores={[
           { titulo: "Disciplinas", valor: String(totalDisciplinas), observacao: "No ano seleccionado" },
-          { titulo: "Presença média", valor: `${mediaPresenca}%`, observacao: "Últimos registos" },
+          { titulo: "Presença média", valor: mediaPresenca === null ? "—" : `${mediaPresenca}%`, observacao: "Disciplinas com registos" },
           { titulo: "Histórico", valor: String(totalHistorico), observacao: "Lançamentos visíveis" },
           { titulo: "Não lidas", valor: String(naoLidas), observacao: "Notificações pendentes" },
         ]}
@@ -86,7 +87,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <div className="grid gap-4 md:grid-cols-4">
           {[
             { titulo: "Disciplinas activas", valor: String(totalDisciplinas), detalhe: "No contexto seleccionado" },
-            { titulo: "Presença média", valor: `${mediaPresenca}%`, detalhe: "Baseada nos registos" },
+            { titulo: "Presença média", valor: mediaPresenca === null ? "—" : `${mediaPresenca}%`, detalhe: "Disciplinas com registos" },
             { titulo: "Histórico visível", valor: String(totalHistorico), detalhe: "Notas e pautas" },
             { titulo: "Novas notificações", valor: String(naoLidas), detalhe: "Pendentes de leitura" },
           ].map((cartao) => (
@@ -121,12 +122,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                           {disciplina.nomeCurso} · {disciplina.nomeTurma} · {disciplina.anoCurricular}º ano
                         </p>
                       </div>
-                      <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-xs font-bold text-brand-blue">
-                        {disciplina.taxaPresenca}%
+<span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-xs font-bold text-brand-blue">
+                        {disciplina.totalPresencas > 0 ? `${disciplina.taxaPresenca}%` : "—"}
                       </span>
                     </div>
                     <div className="mt-4 h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-brand-blue to-brand-green" style={{ width: `${disciplina.taxaPresenca}%` }} />
+                      <div className="h-full rounded-full bg-gradient-to-r from-brand-blue to-brand-green" style={{ width: `${disciplina.totalPresencas > 0 ? disciplina.taxaPresenca : 0}%` }} />
                     </div>
                   </article>
                 ))}

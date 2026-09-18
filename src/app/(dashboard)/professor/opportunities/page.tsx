@@ -15,23 +15,28 @@ export default async function ProfessorOpportunitiesPage() {
     redirect("/login");
   }
 
-  // Buscar vagas criadas pelo docente ou globais
+  // Buscar vagas criadas pelo próprio docente
   const vagasBrutas = await prisma.oportunidadeAcademica.findMany({
+    where: { criadoPor: idUsuario },
     include: {
       criador: { select: { nome: true } },
       candidaturas: { select: { idCandidatura: true } },
     },
     orderBy: { dataPublicacao: "desc" },
   });
+  const idsOportunidades = vagasBrutas.map((vaga) => vaga.idOportunidade);
 
-  // Buscar todas as candidaturas para análise do docente
-  const candidaturasBrutas = await prisma.candidaturaOportunidade.findMany({
-    include: {
-      oportunidade: { select: { idOportunidade: true, titulo: true, empresa: true, tipo: true } },
-      usuario: { select: { nome: true, email: true } },
-    },
-    orderBy: { dataCandidatura: "desc" },
-  });
+  // Candidaturas recebidas nas vagas deste docente
+  const candidaturasBrutas = idsOportunidades.length
+    ? await prisma.candidaturaOportunidade.findMany({
+        where: { idOportunidade: { in: idsOportunidades } },
+        include: {
+          oportunidade: { select: { idOportunidade: true, titulo: true, empresa: true, tipo: true } },
+          usuario: { select: { nome: true, email: true } },
+        },
+        orderBy: { dataCandidatura: "desc" },
+      })
+    : [];
 
   const oportunidades: OportunidadeItem[] = vagasBrutas.map((v) => ({
     id: Number(v.idOportunidade),
@@ -41,7 +46,7 @@ export default async function ProfessorOpportunitiesPage() {
     empresa: v.empresa || "Universidade Kimpa Vita",
     requisitos: v.requisitos,
     dataLimite: v.dataLimite ? v.dataLimite.toISOString() : null,
-    criadorNome: v.criador?.nome || "UKV",
+    criadorNome: v.criador?.nome || "Utilizador",
     totalCandidaturas: v.candidaturas.length,
   }));
 
@@ -49,13 +54,15 @@ export default async function ProfessorOpportunitiesPage() {
     idCandidatura: Number(c.idCandidatura),
     idOportunidade: Number(c.oportunidade.idOportunidade),
     tituloVaga: c.oportunidade.titulo,
-    empresa: c.oportunidade.empresa || "UKV",
+    empresa: c.oportunidade.empresa || "Universidade Kimpa Vita",
     tipo: c.oportunidade.tipo,
     estado: c.estado,
     dataCandidatura: c.dataCandidatura.toISOString(),
     estudanteNome: c.usuario.nome,
     estudanteEmail: c.usuario.email,
   }));
+
+  const candidaturasAvaliadas = todasCandidaturasParaDocente.filter((c) => c.estado !== "pendente").length;
 
   return (
     <div className="space-y-8">
@@ -64,9 +71,9 @@ export default async function ProfessorOpportunitiesPage() {
         titulo="Gestão de Oportunidades & Estágios"
         descricao="Publicar oportunidades de estágio, bolsas de iniciação científica e gerir candidaturas dos estudantes."
         indicadores={[
-          { titulo: "Vagas Publicadas", valor: `${oportunidades.length}`, observacao: "Globais" },
+          { titulo: "Vagas Publicadas", valor: `${oportunidades.length}`, observacao: "Publicadas por ti" },
           { titulo: "Candidaturas", valor: `${todasCandidaturasParaDocente.length}`, observacao: "Recebidas" },
-          { titulo: "Avaliação", valor: "Ativa", observacao: "Processo Seletivo" },
+          { titulo: "Avaliadas", valor: `${candidaturasAvaliadas}`, observacao: "Processadas" },
         ]}
         resumos={[
           {

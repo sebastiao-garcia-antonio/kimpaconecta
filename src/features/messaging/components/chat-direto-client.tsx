@@ -30,7 +30,9 @@ export function ChatDiretoClient({ idUsuario, contactos, conversas, conversaAtiv
   const [isPending, startTransition] = useTransition();
   const [mensagem, setMensagem] = useState("");
   const [estado, setEstado] = useState<string | null>(null);
+  const [ligado, setLigado] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const salaRef = useRef<number | null>(null);
 
   const contactosSemConversa = useMemo(() => {
     const idsEmConversa = new Set(conversas.map((conversa) => conversa.interlocutor?.id).filter(Boolean));
@@ -46,14 +48,34 @@ export function ChatDiretoClient({ idUsuario, contactos, conversas, conversaAtiv
       router.refresh();
     };
 
-    socket.on("notification", handleAtualizacao);
-    socket.on("nova_mensagem", handleAtualizacao);
+    socket.on("new_message", handleAtualizacao);
+    socket.on("new_notification", handleAtualizacao);
+    socket.on("connect", () => setLigado(true));
+    socket.on("disconnect", () => setLigado(false));
+    if (socket.connected) setLigado(true);
 
     return () => {
-      socket.off("notification", handleAtualizacao);
-      socket.off("nova_mensagem", handleAtualizacao);
+      socket.off("new_message", handleAtualizacao);
+      socket.off("new_notification", handleAtualizacao);
+      socket.off("connect", () => setLigado(true));
+      socket.off("disconnect", () => setLigado(false));
     };
   }, [idUsuario, router]);
+
+  // Entrar na sala da conversa ativa para receber mensagens em tempo real
+  useEffect(() => {
+    if (!idUsuario) return;
+    const socket = connectSocketUser(idUsuario);
+    const novaSala = conversaAtiva?.id ?? null;
+
+    if (salaRef.current !== null && salaRef.current !== novaSala) {
+      socket.emit("leave_room", salaRef.current);
+    }
+    if (novaSala !== null && novaSala !== salaRef.current) {
+      socket.emit("join_room", novaSala);
+    }
+    salaRef.current = novaSala;
+  }, [idUsuario, conversaAtiva?.id]);
 
   // Scroll automático para a mensagem mais recente
   useEffect(() => {
@@ -173,9 +195,11 @@ export function ChatDiretoClient({ idUsuario, contactos, conversas, conversaAtiv
                 </div>
                 <div>
                   <h2 className="font-extrabold text-sm text-slate-900">{conversaAtiva.interlocutor?.nome || "Conversa privada"}</h2>
-                  <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold mt-0.5">
-                    <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500" />
-                    <span>Ligado em tempo real via Socket.IO</span>
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold mt-0.5">
+                    <Circle className={`h-2 w-2 fill-current ${ligado ? "text-emerald-500" : "text-slate-300"}`} />
+                    <span className={ligado ? "text-emerald-600" : "text-slate-400"}>
+                      {ligado ? "Em tempo real" : "A ligar…"}
+                    </span>
                   </div>
                 </div>
               </div>

@@ -119,9 +119,9 @@ export default function ProctoringGlobalClient({ initialData, adminNome }: Proct
       })
       .filter((tentativa) => {
         const textoPesquisa = `${tentativa.estudante?.nome || ""} ${tentativa.estudante?.email || ""} ${tentativa.provaTitulo || ""} ${tentativa.tipoEvento || ""}`.toLowerCase();
-        const correspondePesquisa = textoPesquisa.includes(searchTerm.toLowerCase());
+const correspondePesquisa = textoPesquisa.includes(searchTerm.toLowerCase());
         const correspondeEstado = estadoFiltro === "todos" || tentativa.statusTentativa === estadoFiltro;
-        const correspondeRisco = riscoFiltro === "todos" || (tentativa.monitoramento?.nivelSuspeita || "baixo") === riscoFiltro;
+        const correspondeRisco = riscoFiltro === "todos" || tentativa.monitoramento?.nivelSuspeita === riscoFiltro;
         return correspondePesquisa && correspondeEstado && correspondeRisco;
       });
   }, [data.tentativas, searchTerm, estadoFiltro, riscoFiltro]);
@@ -133,8 +133,8 @@ export default function ProctoringGlobalClient({ initialData, adminNome }: Proct
     });
   }, [data.logsRecentes, searchTerm]);
 
-  const bloquearEmLote = () => {
-    const alvos = tentativasOrdenadas.filter((tentativa) => tentativa.statusTentativa === "em_curso" && (tentativa.monitoramento?.nivelSuspeita || "baixo") === "alto");
+const bloquearEmLote = () => {
+    const alvos = tentativasOrdenadas.filter((tentativa) => tentativa.statusTentativa === "em_curso" && tentativa.monitoramento?.nivelSuspeita === "alto");
 
     if (alvos.length === 0) {
       addToast("Nenhuma tentativa em alto risco encontrada.", "info");
@@ -270,10 +270,11 @@ export default function ProctoringGlobalClient({ initialData, adminNome }: Proct
                 Nenhuma tentativa encontrada.
               </div>
             ) : (
-              tentativasOrdenadas.map((tentativa) => {
-                const nivel = tentativa.monitoramento?.nivelSuspeita || "baixo";
+tentativasOrdenadas.map((tentativa) => {
+                const monitoramento = tentativa.monitoramento;
+                const nivel = monitoramento?.nivelSuspeita || null;
                 const bloqueada = tentativa.statusTentativa === "bloqueada";
-                const percentagem = nivel === "alto" ? 90 : nivel === "medio" ? 60 : 25;
+                const percentagem = !nivel ? 0 : nivel === "alto" ? 90 : nivel === "medio" ? 60 : 25;
 
                 return (
                   <div key={tentativa.id} className={`rounded-3xl border bg-white p-5 shadow-sm transition ${bloqueada ? "border-slate-200 opacity-75" : "border-slate-200 hover:shadow-md"}`}>
@@ -283,13 +284,15 @@ export default function ProctoringGlobalClient({ initialData, adminNome }: Proct
                         <h3 className="mt-1 text-base font-black text-slate-900">{tentativa.estudante?.nome || "Estudante"}</h3>
                         <p className="mt-1 text-xs text-slate-500">{tentativa.estudante?.email || tentativa.estudante?.numEstudanteLogin || "Sem identificação"}</p>
                       </div>
-                      <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${corRisco(nivel)}`}>{nivel}</span>
+                      <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${corRisco(nivel || undefined)}`}>{nivel || "Sem dados"}</span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <span className="block text-[10px] uppercase tracking-widest text-slate-400">Câmara</span>
-                        <span className={`mt-1 block font-bold ${tentativa.monitoramento?.webcamAtiva ? "text-emerald-600" : "text-red-500"}`}>{tentativa.monitoramento?.webcamAtiva ? "Ligada" : "Desligada"}</span>
+                        <span className={`mt-1 block font-bold ${monitoramento ? (monitoramento.webcamAtiva ? "text-emerald-600" : "text-red-500") : "text-slate-500"}`}>
+                          {monitoramento ? (monitoramento.webcamAtiva ? "Ligada" : "Desligada") : "—"}
+                        </span>
                       </div>
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <span className="block text-[10px] uppercase tracking-widest text-slate-400">Estado</span>
@@ -297,26 +300,26 @@ export default function ProctoringGlobalClient({ initialData, adminNome }: Proct
                       </div>
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <span className="block text-[10px] uppercase tracking-widest text-slate-400">Foco</span>
-                        <span className="mt-1 block font-bold text-slate-700">{tentativa.monitoramento?.perdaFoco || 0}x</span>
+                        <span className="mt-1 block font-bold text-slate-700">{monitoramento ? `${monitoramento.perdaFoco}x` : "—"}</span>
                       </div>
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <span className="block text-[10px] uppercase tracking-widest text-slate-400">Cópias</span>
-                        <span className="mt-1 block font-bold text-slate-700">{tentativa.monitoramento?.tentativasCopia || 0}x</span>
+                        <span className="mt-1 block font-bold text-slate-700">{monitoramento ? `${monitoramento.tentativasCopia}x` : "—"}</span>
                       </div>
                     </div>
 
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-[11px] text-slate-500">
                         <span>Índice de suspeita</span>
-                        <span>{nivel}</span>
+                        <span>{nivel || "Sem registos de monitorização"}</span>
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div className={`h-full rounded-full ${nivel === "alto" ? "bg-red-500" : nivel === "medio" ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${percentagem}%` }} />
+                        <div className={`h-full rounded-full ${nivel === "alto" ? "bg-red-500" : nivel === "medio" ? "bg-amber-500" : nivel ? "bg-emerald-500" : "bg-slate-200"}`} style={{ width: `${percentagem}%` }} />
                       </div>
                     </div>
 
                     <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> {tentativa.monitoramento?.deteccaoMultiplosRostos ? "Multi-rosto" : "1 rosto"}</span>
+                      <span className="inline-flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> {monitoramento ? (monitoramento.deteccaoMultiplosRostos ? "Multi-rosto" : "1 rosto") : "—"}</span>
                       <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {formatarData(tentativa.submetidoEm || tentativa.dataInicio || new Date())}</span>
                     </div>
 

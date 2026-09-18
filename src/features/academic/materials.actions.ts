@@ -38,7 +38,7 @@ export async function publicarMaterialDidaticoServer(data: {
       descricao: data.descricao || null,
       tipoMaterial: data.tipoMaterial || "PDF",
       urlArquivo: data.urlArquivo,
-      tamanhoArquivo: data.tamanhoArquivo || "2.5 MB",
+      tamanhoArquivo: data.tamanhoArquivo || null,
     },
   });
 

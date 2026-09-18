@@ -7,6 +7,7 @@ import { publicarMaterialDidaticoServer } from "../materials.actions";
 
 export type MaterialItem = {
   id: number;
+  idDisciplina: number;
   titulo: string;
   descricao?: string | null;
   tipoMaterial: string;
@@ -87,7 +88,7 @@ export function BibliotecaDigitalClient({ materiais, disciplinas, usuarioAtual }
       m.disciplinaNome.toLowerCase().includes(filtro.toLowerCase());
 
     const combinaTipo = filtroTipo === "TODOS" || m.tipoMaterial === filtroTipo;
-    const combinaDisc = filtroDisciplina === "TODAS" || m.id === filtroDisciplina;
+    const combinaDisc = filtroDisciplina === "TODAS" || m.idDisciplina === filtroDisciplina;
 
     return combinaTexto && combinaTipo && combinaDisc;
   });

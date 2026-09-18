@@ -197,9 +197,9 @@ export function PortfolioEstudanteClient({
               {getBadgeMedalha(reputacao.nivel)}
             </div>
             <p className="mt-1 text-xs text-slate-500 font-medium">
-              Nº Estudante: <strong className="text-slate-700">{estudante.numEstudante || "-"}</strong> · Curso: <strong className="text-slate-700">{estudante.cursoNome || "Engenharia / UKV"}</strong>
+              Nº Estudante: <strong className="text-slate-700">{estudante.numEstudante || "-"}</strong> · Curso: <strong className="text-slate-700">{estudante.cursoNome || "Não atribuído"}</strong>
             </p>
-            <p className="mt-0.5 text-xs text-slate-400 font-mono">BI: {estudante.numBi || "000000000UE000"}</p>
+            <p className="mt-0.5 text-xs text-slate-400 font-mono">{estudante.numBi ? `BI: ${estudante.numBi}` : "BI não registado"}</p>
           </div>
         </div>
 

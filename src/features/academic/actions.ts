@@ -254,6 +254,22 @@ export async function atualizarStatusTentativaServer(idTentativa: number, status
   }
 }
 
+export async function registrarAdvertenciaTentativaServer(idTentativa: number, estudanteNome: string) {
+  try {
+    await prisma.logsSeguranca.create({
+      data: {
+        idTentativa,
+        tipoEvento: "advertencia",
+        descricao: `Advertência registada pelo docente ao estudante ${estudanteNome} durante a monitorização.`,
+      },
+    });
+    revalidatePath("/professor");
+    return { success: true };
+  } catch {
+    return { error: "Não foi possível registar a advertência." };
+  }
+}
+
 export async function autorizarProjetoServer(idProjeto: number, idProfessor: number) {
   try {
     const updated = await AcademicRepository.authorizeProject(idProjeto, idProfessor);

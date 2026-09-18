@@ -33,6 +33,7 @@ export default async function EstudanteBibliotecaPage() {
 
   const materiaisFormatados: MaterialItem[] = materiaisBrutos.map((m) => ({
     id: Number(m.idMaterial),
+    idDisciplina: m.idDisciplina,
     titulo: m.titulo,
     descricao: m.descricao,
     tipoMaterial: m.tipoMaterial,
