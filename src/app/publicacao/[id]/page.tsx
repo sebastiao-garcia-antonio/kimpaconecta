@@ -85,7 +85,7 @@ export default async function PaginaPublicacao({ params }: { params: Promise<{ i
               href="/login"
               className="rounded-xl bg-brand-blue px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-brand-blue-dark"
             >
-              Iniciar Sessão
+              Iniciar sessão
             </Link>
           )}
         </div>

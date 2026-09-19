@@ -119,7 +119,7 @@ export default async function HomePage() {
               <Search className="mr-2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Pesquisar publicações, exames..."
+                placeholder="Pesquisar disciplinas, notas, oportunidades, documentos e pessoas..."
                 className="w-full bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
               />
             </div>
@@ -143,13 +143,13 @@ export default async function HomePage() {
                   href="/login"
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Iniciar Sessão
+                  Iniciar sessão
                 </Link>
                 <Link
                   href="/registro"
                   className="rounded-xl bg-brand-blue px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-brand-blue-dark"
                 >
-                  Pedir Acesso
+                  Pedir acesso à plataforma
                 </Link>
               </div>
             )}
@@ -171,7 +171,7 @@ export default async function HomePage() {
                   {usuario?.name || "Universidade Kimpa Vita"}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {roles.length > 0 ? roles.join(" · ").toUpperCase() : "Plataforma Colaborativa"}
+                  {roles.length > 0 ? roles.join(" · ").toUpperCase() : "A comunidade académica da UKV num só lugar"}
                 </p>
                 {usuario ? (
                   <Link
@@ -185,7 +185,7 @@ export default async function HomePage() {
                     href="/login"
                     className="mt-4 w-full rounded-2xl bg-brand-blue py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-brand-blue-dark"
                   >
-                    Entrar com a sua Conta
+                    Entrar na plataforma
                   </Link>
                 )}
               </div>
@@ -262,7 +262,7 @@ export default async function HomePage() {
 
             <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-3 text-xs text-slate-500">
               <p className="font-bold text-slate-700">© 2026 Universidade Kimpa Vita</p>
-              <p>Plataforma Integrativa para Gestão Académica e Colaboração Social.</p>
+              <p>A comunidade académica da Universidade Kimpa Vita num só lugar.</p>
             </div>
           </aside>
         </div>

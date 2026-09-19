@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 
 export class AuthRepository {
   static async findUserByIdentifier(identifier: string) {
+    const clean = identifier.trim();
     return prisma.usuario.findFirst({
       where: {
         OR: [
-          { email: identifier },
-          { numEstudanteLogin: identifier }
+          { email: { equals: clean, mode: "insensitive" } },
+          { numEstudanteLogin: { equals: clean, mode: "insensitive" } }
         ]
       },
       include: {

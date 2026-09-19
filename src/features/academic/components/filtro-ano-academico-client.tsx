@@ -40,7 +40,7 @@ export function FiltroAnoAcademicoClient({ anosDisponiveis, anoActual }: FiltroA
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Contexto académico</p>
           <p className="text-sm text-slate-600">
-            {anoActual ? `Ano actual sugerido: ${anoActual}º ano.` : "Escolhe o ano que queres visualizar no painel."}
+            {anoActual ? `Ano actual sugerido: ${anoActual}º ano.` : "Escolha o ano que pretende visualizar no painel."}
           </p>
         </div>
 

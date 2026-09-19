@@ -181,7 +181,7 @@ const totalDisciplinas = disciplinas.length;
                   </div>
                 ))}
                 {notificacoes.length === 0 && (
-                  <p className="text-sm text-slate-500">Ainda não tens notificações.</p>
+                  <p className="text-sm text-slate-500">Ainda não tem notificações.</p>
                 )}
               </div>
             </div>

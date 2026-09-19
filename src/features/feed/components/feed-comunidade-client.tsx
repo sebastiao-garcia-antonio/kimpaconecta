@@ -440,8 +440,8 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
         </form>
       ) : (
         <div className="mt-5 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 text-sm text-slate-600">
-          <p className="font-semibold text-slate-800">Queres participar na conversa?</p>
-          <Link href="/login" className="mt-2 inline-flex font-semibold text-brand-blue hover:underline">Inicia sessão para publicar, gostar e comentar.</Link>
+          <p className="font-semibold text-slate-800">Pretende participar na conversa?</p>
+          <Link href="/login" className="mt-2 inline-flex font-semibold text-brand-blue hover:underline">Inicie sessão para publicar, gostar e comentar.</Link>
         </div>
       )}
 
