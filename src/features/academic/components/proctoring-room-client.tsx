@@ -96,7 +96,7 @@ export default function ProctoringRoomClient({ initialData, professorId, profess
   }, [reloadData]);
 
 
-  const avaliacoes = data.evaluations || [];
+  const avaliacoes = useMemo(() => data.evaluations || [], [data.evaluations]);
 
   useEffect(() => {
     if (selectedExamId !== "todos") return;

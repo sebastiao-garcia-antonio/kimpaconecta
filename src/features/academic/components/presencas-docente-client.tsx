@@ -23,8 +23,8 @@ export function PresencasDocenteClient({ disciplinas, turmas }: { disciplinas: D
   const [presencas, setPresencas] = useState<Record<number, boolean>>({});
   const [mensagem, setMensagem] = useState<string | null>(null);
 
-  useEffect(() => { setIdTurma(String(turmasDisponiveis[0]?.id || "")); }, [disciplinaAtual?.idDisciplina]);
-  useEffect(() => { setPresencas(Object.fromEntries((turmaAtual?.estudantes || []).map((estudante) => [estudante.id, true]))); }, [turmaAtual?.id]);
+  useEffect(() => { setIdTurma(String(turmasDisponiveis[0]?.id || "")); }, [disciplinaAtual?.idDisciplina, turmasDisponiveis]);
+  useEffect(() => { setPresencas(Object.fromEntries((turmaAtual?.estudantes || []).map((estudante) => [estudante.id, true]))); }, [turmaAtual?.estudantes, turmaAtual?.id]);
 
   const enviar = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();

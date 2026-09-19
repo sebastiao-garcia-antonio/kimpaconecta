@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useCallback, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { 
   GraduationCap, Users, Award, ShieldAlert, CheckCircle, 
@@ -102,8 +102,8 @@ export default function ProfessorDashboardClient({
   const [newMemberId, setNewMemberId] = useState<number | null>(null);
   const [newMemberRole, setNewMemberRole] = useState("membro");
 
-  // Reload data helper
-  const reloadData = async () => {
+// Reload data helper
+  const reloadData = useCallback(async () => {
     const res = await getDashboardData(professorId);
     if (res.success && res.data) {
       setData(res.data);
@@ -120,7 +120,7 @@ export default function ProfessorDashboardClient({
         setSelectedGroupId(res.data.groups[0].id);
       }
     }
-  };
+  }, [professorId, selectedDisciplineId, selectedExamId, selectedOpportunityId, selectedGroupId]);
 
   // Live monitor polling emulation
   useEffect(() => {
@@ -128,9 +128,9 @@ export default function ProfessorDashboardClient({
       if (activeTab === "proctoring") {
         reloadData();
       }
-    }, 8000);
+}, 8000);
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [activeTab, reloadData]);
 
   // Sync attendance list with students when discipline changes
   useEffect(() => {

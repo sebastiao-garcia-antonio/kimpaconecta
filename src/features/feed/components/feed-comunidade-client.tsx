@@ -373,6 +373,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
           {anexoPublicacao && (
             <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
               {eImagem(anexoPublicacao.url) ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={anexoPublicacao.url}
                   alt="Pré-visualização do anexo"

@@ -139,7 +139,7 @@ export function FormularioRegistroSolicitacaoClient({
     () => unidades.find((u) => String(u.id) === idUoSelecionado),
     [unidades, idUoSelecionado]
   );
-  const cursosDisponiveis = unidadeAtual?.cursos || [];
+  const cursosDisponiveis = useMemo(() => unidadeAtual?.cursos || [], [unidadeAtual?.cursos]);
   const cursoAtual = useMemo(
     () => cursosDisponiveis.find((c) => String(c.id) === idCursoSelecionado),
     [cursosDisponiveis, idCursoSelecionado]
