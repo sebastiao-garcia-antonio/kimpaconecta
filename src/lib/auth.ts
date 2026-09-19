@@ -5,8 +5,18 @@ import { authConfig } from "@/features/auth/auth.config";
 import { AuthRepository } from "@/features/auth/repositories/auth.repository";
 import { validarVariosTextosSeguros } from "@/lib/validacao-texto";
 
+if (typeof process !== "undefined" && process.env) {
+  const url =
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://kimpaconecta.vercel.app");
+  const finalUrl = url.startsWith("http") ? url : `https://${url}`;
+  process.env.NEXTAUTH_URL = finalUrl;
+  process.env.AUTH_URL = finalUrl;
+}
+
 export const { auth, signIn, signOut, handlers } = NextAuth({
   ...authConfig,
+  trustHost: true,
   providers: [
     Credentials({
       name: "Credentials",
