@@ -5,13 +5,30 @@ import { authConfig } from "@/features/auth/auth.config";
 import { AuthRepository } from "@/features/auth/repositories/auth.repository";
 import { validarVariosTextosSeguros } from "@/lib/validacao-texto";
 
+function sanitizarUrlBase(url: string | undefined): string | null {
+  if (!url) return null;
+  if (url.includes("kimpa_secret_key")) return null;
+  if (!url.includes(".")) return null;
+  return url.startsWith("http") ? url : `https://${url}`;
+}
+
+function obterUrlBase(): string {
+  const envNextAuth = sanitizarUrlBase(process.env.NEXTAUTH_URL);
+  if (envNextAuth) return envNextAuth;
+
+  const envAuth = sanitizarUrlBase(process.env.AUTH_URL);
+  if (envAuth) return envAuth;
+
+  const envVercel = sanitizarUrlBase(process.env.VERCEL_URL);
+  if (envVercel) return envVercel;
+
+  return "https://kimpaconecta.vercel.app";
+}
+
+const urlCorreta = obterUrlBase();
 if (typeof process !== "undefined" && process.env) {
-  const url =
-    process.env.NEXTAUTH_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://kimpaconecta.vercel.app");
-  const finalUrl = url.startsWith("http") ? url : `https://${url}`;
-  process.env.NEXTAUTH_URL = finalUrl;
-  process.env.AUTH_URL = finalUrl;
+  process.env.NEXTAUTH_URL = urlCorreta;
+  process.env.AUTH_URL = urlCorreta;
 }
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
