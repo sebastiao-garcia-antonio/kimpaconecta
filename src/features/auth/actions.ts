@@ -114,19 +114,27 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
       redirect: false,
     });
 
-    if ((res as any)?.error) {
+    if (res && typeof res === "object" && "error" in res && (res as any).error) {
       return { error: "Identificador ou senha incorretos." };
     }
+
+    return { success: true };
   } catch (error: any) {
-    if (error?.type === "CredentialsSignin" || error instanceof AuthError) {
-      return { error: "Identificador ou senha incorretos." };
-    }
-    // Tratar exceção de redirecionamento do Next.js
-    if (error?.message?.includes("NEXT_REDIRECT")) {
+    const errorStr = String(error?.message || error?.digest || error?.name || error || "");
+    const isRedirect =
+      errorStr.includes("NEXT_REDIRECT") ||
+      error?.digest?.startsWith("NEXT_REDIRECT") ||
+      error?.name === "RedirectError";
+
+    if (isRedirect) {
       return { success: true };
     }
+
+    if (error?.type === "CredentialsSignin" || error instanceof AuthError || error?.name === "CredentialsSignin") {
+      return { error: "Identificador ou senha incorretos." };
+    }
+
+    console.error("Erro inesperado no loginUsuarioAction:", error);
     return { error: "Identificador ou senha incorretos." };
   }
-
-  return { success: true };
 }
