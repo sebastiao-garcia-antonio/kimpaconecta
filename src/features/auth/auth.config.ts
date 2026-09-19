@@ -30,7 +30,7 @@ export const authConfig: NextAuthConfig = {
   secret:
     process.env.AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
-    "kimpa_secret_key_super_segura_2026_vercel_production",
+    "f63c87e834bd31b6727289b4f9d45e73ef9b12bb1de29b93abde65fa1a2b1660",
   providers: [],
   callbacks: {
     async jwt({ token, user }) {
