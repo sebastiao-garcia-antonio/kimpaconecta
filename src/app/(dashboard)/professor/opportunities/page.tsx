@@ -64,6 +64,24 @@ export default async function ProfessorOpportunitiesPage() {
 
   const candidaturasAvaliadas = todasCandidaturasParaDocente.filter((c) => c.estado !== "pendente").length;
 
+  const minhasCandidaturasBrutas = await prisma.candidaturaOportunidade.findMany({
+    where: { idUsuario },
+    include: {
+      oportunidade: { select: { idOportunidade: true, titulo: true, empresa: true, tipo: true } },
+    },
+    orderBy: { dataCandidatura: "desc" },
+  });
+
+  const minhasCandidaturas: CandidaturaItem[] = minhasCandidaturasBrutas.map((c) => ({
+    idCandidatura: Number(c.idCandidatura),
+    idOportunidade: Number(c.oportunidade.idOportunidade),
+    tituloVaga: c.oportunidade.titulo,
+    empresa: c.oportunidade.empresa || "Universidade Kimpa Vita",
+    tipo: c.oportunidade.tipo,
+    estado: c.estado,
+    dataCandidatura: c.dataCandidatura.toISOString(),
+  }));
+
   return (
     <div className="space-y-8">
       <PaginaSecao
@@ -87,7 +105,7 @@ export default async function ProfessorOpportunitiesPage() {
       <div className="px-6 pb-8 lg:px-8">
         <EstagiosECandidaturasClient
           oportunidades={oportunidades}
-          minhasCandidaturas={[]}
+          minhasCandidaturas={minhasCandidaturas}
           todasCandidaturasParaDocente={todasCandidaturasParaDocente}
           usuarioAtual={{
             id: idUsuario,

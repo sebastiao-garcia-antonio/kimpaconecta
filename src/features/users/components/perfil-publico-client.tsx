@@ -718,7 +718,7 @@ export function PerfilPublicoClient({
                           <span className="shrink-0 text-[11px] text-slate-400">{formatarData(comentario.dataPublicacao)}</span>
                         </div>
                         <p className="mt-1 text-xs text-slate-500">Em: {Abreviar(comentario.publicacao.conteudo, 80)}</p>
-                        <p className="mt-2 text-sm leading-relaxed text-slate-700">"{Abreviar(comentario.conteudo, 130)}"</p>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-700">{'"'}{Abreviar(comentario.conteudo, 130)}{'"'}</p>
                       </Link>
                     ))
                   )}

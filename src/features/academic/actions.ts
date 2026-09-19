@@ -427,14 +427,3 @@ export async function submeterCandidaturaOportunidadeServer(idOportunidade: numb
   }
 }
 
-export async function semearDadosSimuladosServer(idProfessor: number) {
-  try {
-    await AcademicRepository.semearDadosSimulados(idProfessor);
-    revalidatePath("/professor");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error in semearDadosSimuladosServer:", error);
-    return { error: "Erro ao semear dados demonstrativos: " + error.message };
-  }
-}
-

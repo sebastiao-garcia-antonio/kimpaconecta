@@ -4,9 +4,8 @@ import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { 
   GraduationCap, Users, Award, ShieldAlert, CheckCircle, 
-  Calendar, Plus, Search, FileText, Video, ExternalLink, 
-  Lock, Unlock, AlertTriangle, Loader2, Upload, Play, 
-  Check, X, ChevronRight, Clock, Clipboard, RefreshCw, BarChart2,
+  Calendar, Plus, Search, FileText, Video, ExternalLink,
+  Lock, Unlock, AlertTriangle, Upload, Check, X, ChevronRight, Clock, Clipboard, RefreshCw, BarChart2,
   Briefcase, Bell, Settings, LogOut, BookOpen, AlertCircle, Eye, CheckCircle2, ChevronDown, Trash2, FileSpreadsheet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +15,8 @@ import {
   enviarMaterialDidaticoServer, 
   criarReuniaoVirtualServer, 
   atualizarStatusTentativaServer, 
-  registrarAdvertenciaTentativaServer, 
+  registrarAdvertenciaTentativaServer,
   autorizarProjetoServer, 
-  semearDadosSimuladosServer,
   getDashboardData,
   criarOportunidadeServer,
   atualizarEstadoCandidaturaServer,
@@ -158,20 +156,6 @@ export default function ProfessorDashboardClient({
       }
     }
   }, [selectedGroupId, data.groups, data.students]);
-
-  // Seeder Trigger
-  const handleSeed = () => {
-    startTransition(async () => {
-      addToast("A semear base de dados académica...", "info");
-      const res = await semearDadosSimuladosServer(professorId);
-      if (res.success) {
-        addToast("Dados demonstrativos semeados com sucesso!", "success");
-        await reloadData();
-      } else {
-        addToast(res.error || "Erro ao semear dados", "error");
-      }
-    });
-  };
 
   // Notification Reader Trigger
   const handleMarkNotificationRead = (id: number) => {
@@ -563,7 +547,7 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
     const maxScore = Math.max(...scores);
     const minScore = Math.min(...scores);
     const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-    
+
     const approvedCount = scores.filter(s => s >= 10).length;
     const approvalRate = (approvedCount / scores.length) * 100;
 
@@ -671,22 +655,12 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
               <RefreshCw className={`h-4.5 w-4.5 ${isPending ? "animate-spin" : ""}`} />
             </button>
 
-            {totalStudents === 0 && (
-              <button 
-                onClick={handleSeed}
-                disabled={isPending}
-                className="flex items-center gap-2 bg-gradient-to-r from-brand-blue to-emerald-600 text-white font-bold px-4 py-2 rounded-xl hover:opacity-95 transition text-xs shadow-md shadow-brand-blue/10"
-              >
-                {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                Seedar Banco de Dados
-              </button>
-            )}
           </div>
         </header>
 
         {/* SCROLLABLE MAIN CONTENT */}
         <main className="flex-1 overflow-y-auto p-8 space-y-8">
-          
+
           {/* Tab 1: Overview */}
           {activeTab === "overview" && (
             <div className="space-y-8 animate-fadeIn">
@@ -1092,7 +1066,7 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
           {/* Tab 3: Exams & Analytics */}
           {activeTab === "exams" && (
             <div className="space-y-8 animate-fadeIn">
-              
+
               {/* Grade distribution charts */}
               <div className="bg-white border border-slate-200 p-6 rounded-2xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1568,7 +1542,7 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
           {/* Tab 5: Live Proctoring Monitor */}
           {activeTab === "proctoring" && (
             <div className="space-y-8 animate-fadeIn">
-              
+
               {/* Selected Exam for live logs */}
               <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -1625,7 +1599,7 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
                                 {isHigh && !isBlocked && (
                                   <div className="absolute right-0 top-0 h-1.5 w-full bg-gradient-to-r from-red-600 to-red-400 animate-pulse"></div>
                                 )}
-                                
+
                                 <div className="space-y-4">
                                   <div className="flex justify-between items-start">
                                     <div>
@@ -1748,7 +1722,7 @@ const proctoringAlerts = data.evaluations?.flatMap((e: any) => e.tentativas || [
           {/* Tab 6: Carreiras & Vagas */}
           {activeTab === "opportunities" && (
             <div className="space-y-8 animate-fadeIn">
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Opportunities Creator */}
                 <div className="lg:col-span-1 bg-white border border-slate-200 p-6 rounded-2xl h-fit">
