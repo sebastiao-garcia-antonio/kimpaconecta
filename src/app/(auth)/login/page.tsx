@@ -49,9 +49,14 @@ export default function LoginPage() {
       if (res?.error) {
         setError(res.error);
         setLoading(false);
+        return;
       }
+
+      // Login com sucesso -> navegar com segurança via POST sem expor dados no URL
+      window.location.href = "/";
     } catch {
-      // Quando o Server Action redireciona, o Next.js lida com a navegação do servidor
+      setError("Não foi possível iniciar sessão. Tente novamente.");
+      setLoading(false);
     }
   }
 
@@ -119,7 +124,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form method="POST" onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label htmlFor="identificador" className="text-sm font-semibold text-slate-700">E-mail ou número</label>
               <input

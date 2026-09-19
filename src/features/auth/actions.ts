@@ -108,17 +108,24 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
   const { identifier, password } = result.data;
 
   try {
-    await signIn("credentials", {
+    const res = await signIn("credentials", {
       identifier,
       password,
-      redirectTo: "/",
+      redirect: false,
     });
-  } catch (error) {
-    if (error instanceof AuthError) {
+
+    if ((res as any)?.error) {
       return { error: "Identificador ou senha incorretos." };
     }
-    // Re-throw Next.js redirect exception so server redirect triggers
-    throw error;
+  } catch (error: any) {
+    if (error?.type === "CredentialsSignin" || error instanceof AuthError) {
+      return { error: "Identificador ou senha incorretos." };
+    }
+    // Tratar exceção de redirecionamento do Next.js
+    if (error?.message?.includes("NEXT_REDIRECT")) {
+      return { success: true };
+    }
+    return { error: "Identificador ou senha incorretos." };
   }
 
   return { success: true };
