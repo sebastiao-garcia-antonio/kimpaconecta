@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { validarVariosTextosSeguros } from "@/lib/validacao-texto";
-import { enviarEmailSolicitacaoPendente } from "@/lib/notificacoes-email";
 
 export async function criarSolicitacaoAcesso(formData: any) {
   const result = registroSchema.safeParse(formData);
@@ -29,7 +28,6 @@ export async function criarSolicitacaoAcesso(formData: any) {
   const { nomeCompleto, email, numEstudante, numBi, telefone, senhaProvisoria, idUo, idCurso, idTurma } = result.data;
   
   try {
-    // 1. Garantir que os perfis padrão existam na base de dados
     await AuthRepository.inicializarPerfis();
 
     const cursoId = Number(idCurso);
@@ -54,14 +52,10 @@ export async function criarSolicitacaoAcesso(formData: any) {
       return { error: "A turma selecionada não pertence ao curso escolhido." };
     }
 
-    // 2. Criptografar a senha do utilizador
     const hashed = await bcrypt.hash(senhaProvisoria, 10);
-
-    // 3. Verificar quantidade de utilizadores existentes
     const count = await AuthRepository.countUsuarios();
 
     if (count === 0) {
-      // Primeiro utilizador é Administrador
       await AuthRepository.registrarUsuarioDireto({
         nome: nomeCompleto,
         email,
@@ -76,7 +70,6 @@ export async function criarSolicitacaoAcesso(formData: any) {
         message: "Primeiro utilizador registado com sucesso como ADMINISTRADOR! Pode fazer login diretamente." 
       };
     } else {
-      // Outros utilizadores enviam pedido de acesso para aprovação do coordenador
       await AuthRepository.registrarSolicitacaoAcesso({
         nomeCompleto,
         email,
@@ -98,8 +91,8 @@ export async function criarSolicitacaoAcesso(formData: any) {
   }
 }
 
-export async function loginUsuario(formData: any) {
-  const result = loginSchema.safeParse(formData);
+export async function loginUsuarioAction(data: { identifier: string; password: string }) {
+  const result = loginSchema.safeParse(data);
   if (!result.success) {
     return { error: "Identificador ou senha em formato inválido." };
   }
@@ -118,23 +111,15 @@ export async function loginUsuario(formData: any) {
     await signIn("credentials", {
       identifier,
       password,
-      redirect: false,
+      redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      console.error("[LOGIN] AuthError type:", error.type, "message:", error.message);
       return { error: "Identificador ou senha incorretos." };
     }
-    // In NextAuth v5, successful signIn throws NEXT_REDIRECT
-    // We need to re-throw it so Next.js can handle the redirect
+    // Re-throw Next.js redirect exception so server redirect triggers
     throw error;
   }
 
-  // If we get here with redirect:false, login was successful
-  // Return success and let the client handle redirect
   return { success: true };
 }
-
-
-
-

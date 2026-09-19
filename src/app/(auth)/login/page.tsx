@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import {
   AlertCircle,
   GraduationCap,
@@ -12,6 +11,7 @@ import {
   Users,
   BellRing,
 } from "lucide-react";
+import { loginUsuarioAction } from "@/features/auth/actions";
 
 const destaques = [
   {
@@ -45,23 +45,13 @@ export default function LoginPage() {
     const password = String(formData.get("password") || "");
 
     try {
-      const res = await signIn("credentials", {
-        redirect: false,
-        identifier,
-        password,
-      });
-
-      if (res?.error || !res?.ok) {
-        setError("Identificador ou senha incorretos.");
+      const res = await loginUsuarioAction({ identifier, password });
+      if (res?.error) {
+        setError(res.error);
         setLoading(false);
-        return;
       }
-
-      // Login bem sucedido -> navegar para a página principal que redirecionará conforme o perfil
-      window.location.href = "/";
     } catch {
-      setError("Não foi possível iniciar sessão.");
-      setLoading(false);
+      // Quando o Server Action redireciona, o Next.js lida com a navegação do servidor
     }
   }
 
