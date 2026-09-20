@@ -2,38 +2,49 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  AlertCircle,
   GraduationCap,
+  AlertCircle,
   Loader2,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
   ShieldCheck,
-  Sparkles,
-  Users,
-  BellRing,
 } from "lucide-react";
 import { loginUsuarioAction } from "@/features/auth/actions";
 
-const destaques = [
-  {
-    icon: <ShieldCheck className="h-4 w-4" />,
-    titulo: "Acesso seguro",
-    descricao: "Login por e-mail ou número de estudante.",
-  },
-  {
-    icon: <Users className="h-4 w-4" />,
-    titulo: "Perfis por papel",
-    descricao: "Administrador, coordenador, docente e estudante.",
-  },
-  {
-    icon: <BellRing className="h-4 w-4" />,
-    titulo: "Notificações",
-    descricao: "Pedidos e aprovações aparecem no painel.",
-  },
-];
+function Field({
+  id,
+  label,
+  icon,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+        <span className="text-brand-blue">{icon}</span>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-blue focus:bg-white focus:ring-4 focus:ring-brand-blue/10";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +63,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Login com sucesso -> navegar com segurança via POST sem expor dados no URL
       window.location.href = "/";
     } catch {
       setError("Não foi possível iniciar sessão. Tente novamente.");
@@ -61,122 +71,141 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(180deg,_#f8fafc_0%,_#eef6ff_100%)] px-4 py-8">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-2">
-        <section className="relative overflow-hidden rounded-[2rem] border border-white/60 bg-slate-900 p-8 text-white shadow-2xl shadow-slate-900/10">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(37,99,235,0.22),rgba(16,185,129,0.18))]" />
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-12 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl" />
-
-          <div className="relative space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] text-white/80 backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5" />
-              Universidade Kimpa Vita
+    <div className="min-h-screen bg-slate-50">
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        {/* ── Painel Esquerdo: Imagem e Apresentação (Idêntico ao Registo) ── */}
+        <div className="relative hidden lg:block lg:w-[45%] lg:shrink-0">
+          <Image
+            src="/registro-hero.jpg"
+            alt="Campus da Universidade Kimpa Vita"
+            width={1200}
+            height={1200}
+            priority
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {/* Overlay escuro */}
+          <div className="absolute inset-0 bg-slate-900/65" />
+          {/* Conteúdo centrado */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-10 text-center text-white">
+            <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+              <GraduationCap className="h-8 w-8 text-white" />
             </div>
-
-            <div className="space-y-4">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-                <GraduationCap className="h-8 w-8" />
-              </div>
-              <h1 className="max-w-md text-3xl font-extrabold tracking-tight sm:text-4xl">
-                Plataforma colaborativa para integração académica
-              </h1>
-              <p className="max-w-lg text-sm leading-6 text-white/75 sm:text-base">
-                Aceda ao seu painel, acompanhe pedidos de acesso, aprovações,
-                disciplinas, notificações e o seu percurso académico num só lugar.
-              </p>
-            </div>
-
-            <div className="grid gap-3">
-              {destaques.map((item) => (
+            <h2 className="text-3xl font-extrabold leading-snug">
+              Universidade<br />Kimpa Vita
+            </h2>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/75">
+              Plataforma colaborativa de integração académica para estudantes, docentes e coordenadores.
+            </p>
+            <div className="mt-6 w-full max-w-xs space-y-2">
+              {[
+                "Aceda ao seu painel com login seguro",
+                "Acompanhe notas, disciplinas e pautas",
+                "Colabore com a comunidade universitária",
+              ].map((texto, i) => (
                 <div
-                  key={item.titulo}
-                  className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur"
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-left backdrop-blur-sm"
                 >
-                  <div className="mt-0.5 rounded-xl bg-white/10 p-2 text-white">{item.icon}</div>
-                  <div>
-                    <p className="font-semibold text-white">{item.titulo}</p>
-                    <p className="text-sm text-white/70">{item.descricao}</p>
-                  </div>
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-white/85">{texto}</span>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60">
-          <div className="flex flex-col items-center text-center">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue/10 text-brand-blue">
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-800">
-              Iniciar sessão
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Entre com o e-mail institucional ou número de estudante.
-            </p>
-          </div>
+        {/* ── Painel Direito: Formulário de Login (Idêntico ao Registo) ── */}
+        <div className="flex flex-1 items-center justify-center px-4 py-8 lg:px-12">
+          <div className="w-full max-w-md">
 
-          {error && (
-            <div className="mt-6 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form method="POST" onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label htmlFor="identificador" className="text-sm font-semibold text-slate-700">E-mail ou número</label>
-              <input
-                id="identificador"
-                type="text"
-                name="identifier"
-                required
-                autoComplete="username"
-                placeholder="ex: admin@kimpa.ao ou EST2026001"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-800 outline-none transition focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10"
-              />
+            {/* Cabeçalho */}
+            <div className="mb-7">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-xl bg-brand-blue/10 px-3 py-1.5 text-xs font-bold text-brand-blue">
+                <ShieldCheck className="h-4 w-4" />
+                Acesso Seguro
+              </div>
+              <h1 className="text-2xl font-extrabold text-slate-800">Iniciar sessão</h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Insira o seu e-mail institucional ou número de estudante para continuar.
+              </p>
             </div>
 
-            <div>
-              <label htmlFor="senha" className="text-sm font-semibold text-slate-700">Senha</label>
-              <input
-                id="senha"
-                type="password"
-                name="password"
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-800 outline-none transition focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3.5 font-semibold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  A entrar...
-                </>
-              ) : (
-                "Entrar no sistema"
+            {/* Card Principal */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              {/* Alerta de erro */}
+              {error && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
-          </form>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-700">Ainda não tens conta?</p>
-            <p className="mt-1">
-              Faz o pedido de acesso e aguarda a validação do coordenador.
+              <form method="POST" onSubmit={handleSubmit} className="space-y-4">
+                <Field id="identificador" label="E-mail ou número de estudante" icon={<User className="h-3.5 w-3.5" />}>
+                  <input
+                    id="identificador"
+                    type="text"
+                    name="identifier"
+                    required
+                    autoComplete="username"
+                    placeholder="Ex: admin@kimpa.ao ou EST2026001"
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field id="senha" label="Senha" icon={<Lock className="h-3.5 w-3.5" />}>
+                  <div className="relative">
+                    <input
+                      id="senha"
+                      type={mostrarSenha ? "text" : "password"}
+                      name="password"
+                      required
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      className={`${inputCls} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMostrarSenha(!mostrarSenha)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition hover:text-slate-600"
+                      aria-label={mostrarSenha ? "Esconder senha" : "Mostrar senha"}
+                    >
+                      {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </Field>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-blue px-4 py-3 text-sm font-bold text-white shadow-md shadow-brand-blue/20 transition hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      A entrar...
+                    </>
+                  ) : (
+                    <>
+                      Entrar no sistema
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Link para criar conta */}
+            <p className="mt-5 text-center text-sm text-slate-500">
+              Ainda não tem conta?{" "}
+              <Link href="/registro" className="font-semibold text-brand-blue hover:underline">
+                Pedir acesso à plataforma
+              </Link>
             </p>
-            <Link href="/registro" className="mt-3 inline-flex font-semibold text-brand-blue hover:underline">
-              Criar pedido de acesso
-            </Link>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );
