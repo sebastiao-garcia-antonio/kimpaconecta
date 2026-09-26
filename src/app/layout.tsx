@@ -8,8 +8,19 @@ import { AuthSessionProvider } from "@/providers/session-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://kimpaconecta.vercel.app"),
   title: "Kimpa Connect | Plataforma Académica Colaborativa",
   description: "O portal de integração académica oficial da Universidade Kimpa Vita. Uma ponte de inovação, networking e conhecimento.",
+  icons: {
+    icon: "/logo-oficial.jpeg",
+    apple: "/logo-oficial.jpeg",
+    shortcut: "/logo-oficial.jpeg",
+  },
+  openGraph: {
+    title: "Kimpa Connect | Universidade Kimpa Vita",
+    description: "A comunidade académica da Universidade Kimpa Vita num só lugar.",
+    images: ["/logo-oficial.jpeg"],
+  },
 };
 
 export default function RootLayout({

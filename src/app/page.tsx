@@ -1,11 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FeedRepository } from "@/features/feed/repositories/feed.repository";
 import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
 import { SocketStatusBadge } from "@/components/common/socket-status-badge";
 import {
-  GraduationCap,
   Briefcase,
   Search,
   Home as HomeIcon,
@@ -108,9 +108,14 @@ export default async function HomePage() {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2">
-              <div className="rounded-xl bg-gradient-to-tr from-brand-blue to-brand-green p-1.5 text-white shadow-md shadow-brand-blue/20">
-                <GraduationCap className="h-5 w-5" />
-              </div>
+              <Image
+                src="/logo-oficial.jpeg"
+                alt="Logo Universidade Kimpa Vita"
+                width={32}
+                height={32}
+                className="rounded-xl object-cover shadow-sm"
+                priority
+              />
               <span className="hidden text-lg font-extrabold tracking-tight text-slate-800 sm:block">
                 Kimpa Connect
               </span>
@@ -164,9 +169,20 @@ export default async function HomePage() {
           <aside className="space-y-6 lg:col-span-1">
             <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs">
               <div className="flex flex-col items-center text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-brand-green text-xl font-black text-white shadow-md">
-                  {usuario?.name ? usuario.name.substring(0, 2).toUpperCase() : "UKV"}
-                </div>
+                {usuario ? (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-brand-green text-xl font-black text-white shadow-md">
+                    {usuario.name ? usuario.name.substring(0, 2).toUpperCase() : "U"}
+                  </div>
+                ) : (
+                  <Image
+                    src="/logo-oficial.jpeg"
+                    alt="Logo Universidade Kimpa Vita"
+                    width={64}
+                    height={64}
+                    className="rounded-2xl object-cover shadow-md"
+                    priority
+                  />
+                )}
                 <h3 className="mt-3 text-base font-extrabold text-slate-900">
                   {usuario?.name || "Universidade Kimpa Vita"}
                 </h3>

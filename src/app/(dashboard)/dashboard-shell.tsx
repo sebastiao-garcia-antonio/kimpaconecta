@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -28,6 +29,7 @@ import {
 import { signOut } from "next-auth/react";
 import { FiltroAnoAcademicoClient } from "@/features/academic/components/filtro-ano-academico-client";
 import { SocketStatusBadge } from "@/components/common/socket-status-badge";
+
 
 interface ItemNavegacao {
   label: string;
@@ -199,9 +201,7 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
     <>
 <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
         <Link href="/" className="flex items-center gap-3" onClick={() => setMenuMovelAberto(false)} title="Voltar ao início">
-          <div className="rounded-xl bg-gradient-to-tr from-brand-blue to-brand-green p-1.5 text-white shadow-md shadow-brand-blue/20">
-            <GraduationCap className="h-6 w-6" />
-          </div>
+          <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={36} height={36} className="rounded-xl object-cover shadow-sm" priority />
           <div>
             <span className="text-base font-extrabold tracking-tight text-slate-800">Kimpa Connect</span>
             <span className="mt-0.5 block w-fit rounded-full bg-brand-blue/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-blue">
@@ -274,9 +274,7 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
           <Menu className="h-5 w-5" />
         </button>
         <Link href="/" className="flex items-center gap-2" title="Voltar ao início">
-          <div className="rounded-lg bg-gradient-to-tr from-brand-blue to-brand-green p-1 text-white">
-            <GraduationCap className="h-4 w-4" />
-          </div>
+          <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={28} height={28} className="rounded-lg object-cover" priority />
           <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
         </Link>
       </header>

@@ -87,8 +87,15 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-slate-900/65" />
           {/* Conteúdo centrado */}
           <div className="absolute inset-0 flex flex-col items-center justify-center px-10 text-center text-white">
-            <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-              <GraduationCap className="h-8 w-8 text-white" />
+            <div className="mb-5 inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 p-1 backdrop-blur-sm">
+              <Image
+                src="/logo-oficial.jpeg"
+                alt="Logo Universidade Kimpa Vita"
+                width={72}
+                height={72}
+                className="rounded-xl object-cover"
+                priority
+              />
             </div>
             <h2 className="text-3xl font-extrabold leading-snug">
               Universidade<br />Kimpa Vita
