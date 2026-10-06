@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PaginaSecao } from "@/components/pagina-seccao";
 import { obterDadosDashboardCompleto } from "@/features/admin/admin.actions";
+import { AnalyticsRepository } from "@/features/analytics/repositories/analytics.repository";
 import {
   Activity,
   ArrowRight,
+  BarChart2,
   BookOpen,
   FolderGit2,
   GraduationCap,
@@ -13,6 +15,7 @@ import {
   LayoutDashboard,
   ShieldAlert,
   ShieldCheck,
+  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -67,7 +70,10 @@ export default async function AdminPage() {
     redirect("/login");
   }
 
-  const dashboardData = await obterDadosDashboardCompleto();
+  const [dashboardData, analytics] = await Promise.all([
+    obterDadosDashboardCompleto(),
+    AnalyticsRepository.obterResumoAcademico(),
+  ]);
 
   const indicadores = [
     {
@@ -285,8 +291,66 @@ export default async function AdminPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Widget Analytics Académicos ── */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="rounded-xl bg-brand-blue/10 p-2 text-brand-blue">
+              <BarChart2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900">Analytics académicos</h3>
+              <p className="text-sm text-slate-500">Métricas em tempo real da Universidade Kimpa Vita.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            {[
+              { label: "Avaliações", valor: analytics.totalAvaliacoes, icon: BookOpen, cor: "text-brand-blue bg-brand-blue/10" },
+              { label: "Presenças", valor: analytics.totalPresencas, icon: Users, cor: "text-emerald-600 bg-emerald-50" },
+              { label: "Oportunidades", valor: analytics.totalOportunidades, icon: TrendingUp, cor: "text-amber-600 bg-amber-50" },
+              { label: "Candidaturas", valor: analytics.totalCandidaturas, icon: FolderGit2, cor: "text-purple-600 bg-purple-50" },
+            ].map(({ label, valor, icon: Icon, cor }) => (
+              <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${cor} mb-3`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="text-2xl font-black text-slate-900">{valor.toLocaleString("pt-PT")}</div>
+                <div className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
+              </div>
+            ))}
+          </div>
+          {analytics.desempenhoPorCurso.length > 0 ? (
+            <div>
+              <h4 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Desempenho por curso</h4>
+              <div className="space-y-3">
+                {analytics.desempenhoPorCurso.map((curso) => {
+                  const maxEstud = Math.max(...analytics.desempenhoPorCurso.map((c) => c.totalEstudantes), 1);
+                  const pct = Math.round((curso.totalEstudantes / maxEstud) * 100);
+                  return (
+                    <div key={curso.idCurso} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="truncate text-sm font-bold text-slate-800">{curso.nomeCurso}</span>
+                        <div className="flex shrink-0 gap-3 text-[11px] font-semibold text-slate-500">
+                          <span>{curso.totalEstudantes} est.</span>
+                          <span>{curso.totalDisciplinas} disc.</span>
+                          <span>{curso.totalAvaliacoes} aval.</span>
+                        </div>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div className="h-full rounded-full bg-gradient-to-r from-brand-blue to-brand-green" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-400">
+              Sem dados de cursos disponíveis ainda.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
