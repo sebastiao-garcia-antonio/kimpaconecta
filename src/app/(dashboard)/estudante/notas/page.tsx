@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PaginaSecao } from "@/components/pagina-seccao";
 import { AcademicRepository } from "@/features/academic/repositories/academic.repository";
+import { ExportarNotasBotao } from "@/features/academic/components/exportar-notas-botao";
 import {
   interpretarFiltroAnoAcademico,
   normalizarFiltroAnoAcademico,
@@ -53,6 +54,10 @@ export default async function PaginaNotasEstudante({ searchParams }: PageProps) 
   const menorNota = totalRegistos ? Math.min(...registros.map((registo: any) => Number(registo.notaFinal || 0))) : 0;
   const taxaAprovacao = totalRegistos ? Math.round((aprovados / totalRegistos) * 100) : 0;
   const notaMaximaVisual = 20;
+  const nomeEstudante = sessao.user?.name || "Estudante";
+  const anoLabel = filtroAno === "historico"
+    ? "Histórico completo"
+    : rotuloFiltroAnoAcademico(anoAtivo, contextoAcademico.anoActual);
 
   return (
     <div className="space-y-8">
@@ -74,10 +79,21 @@ export default async function PaginaNotasEstudante({ searchParams }: PageProps) 
       />
 
       <div className="px-6 lg:px-8 pb-8">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
-          {filtroAno === "historico"
-            ? "A visualizar pautas de todos os anos."
-            : `A visualizar ${rotuloFiltroAnoAcademico(anoAtivo, contextoAcademico.anoActual)}.`}
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">
+            {filtroAno === "historico"
+              ? "A visualizar pautas de todos os anos."
+              : `A visualizar ${anoLabel}.`}
+          </p>
+          <ExportarNotasBotao
+            registos={registros}
+            nomeEstudante={nomeEstudante}
+            anoLabel={anoLabel}
+            media={media}
+            aprovados={aprovados}
+            reprovados={reprovados}
+            taxaAprovacao={taxaAprovacao}
+          />
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-4">
