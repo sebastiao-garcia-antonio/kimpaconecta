@@ -105,7 +105,7 @@ export function PaginaSecao({
       </div>
 
       {/* Resumo Operacional */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      {/* <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-lg font-black text-slate-900">Resumo operacional</h3>
@@ -143,7 +143,7 @@ export function PaginaSecao({
             </p>
           )}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
