@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Download, Loader2, FileText } from "lucide-react";
 
 interface RegistoNota {
-  idHistorico: number | string;
+  idHistorico?: number | string | bigint;
   anoLectivo: number;
-  notaFinal: number | string;
+  notaFinal: any;
   resultado: string;
   disciplina?: { nomeDisciplina: string; curso?: { nomeCurso: string } };
 }

@@ -8,17 +8,18 @@ type Indicador = {
   observacao?: string;
 };
 
-type CartaoResumo = {
+export type CartaoResumo = {
   titulo: string;
   descricao: string;
   estado?: string;
 };
 
-interface PaginaSecaoProps {
+export interface PaginaSecaoProps {
   papel: "admin" | "professor" | "coordenador" | "estudante";
   titulo: string;
   descricao: string;
   indicadores: Indicador[];
+  resumos?: CartaoResumo[];
   acaoPrincipal?: ReactNode;
   mostrarVoltar?: boolean;
 }
