@@ -19,7 +19,6 @@ interface PaginaSecaoProps {
   titulo: string;
   descricao: string;
   indicadores: Indicador[];
-  resumos: CartaoResumo[];
   acaoPrincipal?: ReactNode;
   mostrarVoltar?: boolean;
 }
@@ -36,7 +35,6 @@ export function PaginaSecao({
   titulo,
   descricao,
   indicadores,
-  resumos,
   acaoPrincipal,
   mostrarVoltar = true,
 }: PaginaSecaoProps) {
@@ -103,47 +101,6 @@ export function PaginaSecao({
           ))}
         </div>
       </div>
-
-      {/* Resumo Operacional */}
-      {/* <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="text-lg font-black text-slate-900">Resumo operacional</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Visão rápida dos itens prioritários desta secção.</p>
-          </div>
-          <div className="rounded-xl bg-brand-blue/10 p-2 text-brand-blue">
-            <Sparkles className="h-4 w-4" />
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {resumos.length > 0 ? (
-            resumos.map((resumo, index) => (
-              <div
-                key={`resumo-${resumo.titulo || "item"}-${index}`}
-                className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition hover:border-slate-200 hover:bg-white hover:shadow-xs"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-blue/10 text-brand-blue">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-bold text-slate-800">{resumo.titulo}</h4>
-                  <p className="mt-0.5 text-xs text-slate-500">{resumo.descricao}</p>
-                </div>
-                {resumo.estado && (
-                  <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-3 py-1 text-[10px] font-bold text-emerald-700">
-                    {resumo.estado}
-                  </span>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-              Não existem itens prioritários para apresentar nesta secção.
-            </p>
-          )}
-        </div>
-      </div> */}
     </div>
   );
 }

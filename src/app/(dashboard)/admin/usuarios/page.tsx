@@ -29,12 +29,7 @@ export default async function UsuariosAdminPage() {
           { titulo: "Bloqueados", valor: String(totalBloqueados), observacao: "Em revisão" },
           { titulo: "Estudantes / Docentes", valor: `${totalEstudantes}/${totalDocentes}`, observacao: "Perfis principais" },
         ]}
-        resumos={usuarios.slice(0, 4).map((usuario: any) => ({
-          titulo: usuario.nome,
-          descricao: `${usuario.email} · ${usuario.perfis.map((perfil: any) => perfil.perfil.nomePerfil).join(", ")}`,
-          estado: usuario.status,
-        }))}
-      />
+        />
 
       <div className="px-6 lg:px-8">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
