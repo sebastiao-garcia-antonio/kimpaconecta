@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PaginaSecao } from "@/components/pagina-seccao";
 import { obterDadosDashboardCoordenador } from "@/features/admin/admin.actions";
+import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
+import { obterFeedInicial } from "@/features/feed/obter-feed-inicial";
 import {
   AlertTriangle,
   ArrowRight,
@@ -46,6 +48,7 @@ export default async function DashboardPage() {
   }
 
   const dados = await obterDadosDashboardCoordenador();
+  const feed = await obterFeedInicial({ idUsuario: Number(session.user.id), nome: session.user.name, papeis: roles });
 
   const aprovadas = dados.metricas.totalCursos > 0
     ? Math.round((dados.solicitacoesRecentes.filter((item) => item.status === "aprovado").length / Math.max(dados.solicitacoesRecentes.length, 1)) * 100)
@@ -86,6 +89,12 @@ export default async function DashboardPage() {
       />
 
       <div className="px-6 lg:px-8 space-y-6">
+        <FeedComunidadeClient
+          publicacoes={feed.publicacoes}
+          proximoCursor={feed.proximoCursor}
+          usuarioAtual={feed.usuarioAtual}
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <div className="group p-5 bg-white border border-slate-200 rounded-2xl hover:border-brand-blue/30 hover:shadow-md transition-all duration-300">
             <div className="flex justify-between items-start">

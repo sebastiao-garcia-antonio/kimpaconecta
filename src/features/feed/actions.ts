@@ -5,6 +5,27 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validarTextoSeguro } from "@/lib/validacao-texto";
 import { NotificationsRepository } from "@/features/notifications/repositories/notifications.repository";
+import { FeedRepository, serializarPublicacao } from "./repositories/feed.repository";
+import type { ComentarioFeed } from "./types";
+
+function construirComentario(comentario: any): ComentarioFeed {
+  return {
+    id: comentario.id,
+    conteudo: comentario.conteudo,
+    dataPublicacao:
+      comentario.dataPublicacao instanceof Date
+        ? comentario.dataPublicacao.toISOString()
+        : String(comentario.dataPublicacao),
+    autor: {
+      id: comentario.autor.id,
+      nome: comentario.autor.nome,
+      fotoPerfil: comentario.autor.fotoPerfil,
+    },
+    gostou: false,
+    _count: { gostos: 0 },
+    respostas: [],
+  };
+}
 
 async function obterUsuarioAutenticado() {
   const sessao = await auth();
@@ -38,8 +59,9 @@ async function notificarInteracaoNoFeed(idDestinatario: number, idAutorInteracao
 }
 
 function revalidarFeedENotificacoes() {
-  revalidatePath("/");
-  revalidatePath("/notificacoes");
+  for (const caminho of ["/", "/estudante", "/admin", "/professor", "/coordenador", "/notificacoes"]) {
+    revalidatePath(caminho);
+  }
 }
 
 function validarUrlAnexo(urlAnexo?: string) {
@@ -71,14 +93,113 @@ export async function criarPublicacaoServer(conteudo: unknown, urlAnexo?: unknow
   const validaAnexo = validarUrlAnexo(anexo);
   if (validaAnexo) return { erro: validaAnexo };
 
-  await prisma.publicacao.create({
+  const criada = await prisma.publicacao.create({
     data: {
       idAutor: usuario.idUsuario,
       conteudo: validacao.valor,
       urlImagem: anexo || null,
     },
+    include: {
+      autor: { select: { id: true, nome: true, fotoPerfil: true } },
+      gostos: { where: { idUsuario: usuario.idUsuario }, select: { idUsuario: true } },
+      _count: { select: { gostos: true, comentarios: true } },
+    },
   });
-  revalidatePath("/");
+  revalidarFeedENotificacoes();
+  return { sucesso: true, publicacao: serializarPublicacao(criada) };
+}
+
+export async function carregarPublicacoesFeedServer(cursorId?: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para ver a comunidade." };
+
+  let cursor: number | null = null;
+  if (cursorId !== undefined && cursorId !== null && cursorId !== "") {
+    const identificador = validarIdentificador(cursorId, "O cursor");
+    if (!identificador.ok) return { erro: identificador.erro };
+    cursor = identificador.valor;
+  }
+
+  const limite = 10;
+  const itens = await FeedRepository.listarPublicacoesFeed({
+    idUsuario: usuario.idUsuario,
+    cursorId: cursor,
+    limite,
+  });
+
+  const proximoCursor = itens.length === limite ? itens[itens.length - 1].id : null;
+
+  return {
+    sucesso: true,
+    publicacoes: itens.map(serializarPublicacao),
+    proximoCursor,
+  };
+}
+
+export async function obterInteracoesPublicacaoServer(idPublicacao: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para ver as interações." };
+
+  const identificador = validarIdentificador(idPublicacao, "A publicação");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const interacoes = await FeedRepository.obterInteracoesPublicacao(identificador.valor);
+  return { sucesso: true, ...interacoes };
+}
+
+export async function editarPublicacaoServer(idPublicacao: unknown, conteudo: unknown, urlImagem?: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para editar a publicação." };
+
+  const identificador = validarIdentificador(idPublicacao, "A publicação");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const validacao = validarTextoSeguro(conteudo, "A publicação", { obrigatorio: true, maxLength: 1200 });
+  if (!validacao.ok) return { erro: validacao.erro };
+
+  const anexo = typeof urlImagem === "string" ? urlImagem.trim() : "";
+  const validaAnexo = validarUrlAnexo(anexo);
+  if (validaAnexo) return { erro: validaAnexo };
+
+  const publicacao = await prisma.publicacao.findUnique({
+    where: { id: identificador.valor },
+    select: { id: true, idAutor: true },
+  });
+  if (!publicacao) return { erro: "A publicação já não está disponível." };
+
+  if (publicacao.idAutor !== usuario.idUsuario && !usuario.papeis.includes("admin")) {
+    return { erro: "Só o autor pode editar esta publicação." };
+  }
+
+  await prisma.publicacao.update({
+    where: { id: publicacao.id },
+    data: { conteudo: validacao.valor, urlImagem: anexo || null },
+  });
+
+  revalidarFeedENotificacoes();
+  return { sucesso: true, conteudo: validacao.valor, urlImagem: anexo || null };
+}
+
+export async function eliminarPublicacaoServer(idPublicacao: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para eliminar a publicação." };
+
+  const identificador = validarIdentificador(idPublicacao, "A publicação");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const publicacao = await prisma.publicacao.findUnique({
+    where: { id: identificador.valor },
+    select: { id: true, idAutor: true },
+  });
+  if (!publicacao) return { erro: "A publicação já não está disponível." };
+
+  if (publicacao.idAutor !== usuario.idUsuario && !usuario.papeis.includes("admin")) {
+    return { erro: "Só o autor pode eliminar esta publicação." };
+  }
+
+  await prisma.publicacao.delete({ where: { id: publicacao.id } });
+
+  revalidarFeedENotificacoes();
   return { sucesso: true };
 }
 
@@ -129,6 +250,7 @@ export async function criarComentarioPublicacaoServer(idPublicacao: unknown, con
   if (!publicacao) return { erro: "A publicação já não está disponível." };
 
   let idPai: number | null = null;
+  let criado: any = null;
   if (idComentarioPai !== undefined && idComentarioPai !== null && idComentarioPai !== "") {
     const paiIdentificador = validarIdentificador(idComentarioPai, "O comentário");
     if (!paiIdentificador.ok) return { erro: paiIdentificador.erro };
@@ -147,13 +269,14 @@ export async function criarComentarioPublicacaoServer(idPublicacao: unknown, con
     // permitindo conversas longas dentro de um único fio (como o Facebook).
     idPai = comentarioPai.id;
 
-    await prisma.comentarioPublicacao.create({
+    criado = await prisma.comentarioPublicacao.create({
       data: {
         idPublicacao: publicacao.id,
         idAutor: usuario.idUsuario,
         idComentarioPai: idPai,
         conteudo: validacao.valor,
       },
+      include: { autor: { select: { id: true, nome: true, fotoPerfil: true } } },
     });
     await notificarInteracaoNoFeed(
       comentarioPai.idAutor,
@@ -162,35 +285,132 @@ export async function criarComentarioPublicacaoServer(idPublicacao: unknown, con
       "Alguém respondeu ao teu comentário na comunidade."
     );
   } else {
-    await prisma.comentarioPublicacao.create({
+    criado = await prisma.comentarioPublicacao.create({
       data: { idPublicacao: publicacao.id, idAutor: usuario.idUsuario, conteudo: validacao.valor },
+      include: { autor: { select: { id: true, nome: true, fotoPerfil: true } } },
     });
   }
 
   await notificarInteracaoNoFeed(publicacao.idAutor, usuario.idUsuario, "Novo comentário na publicação", "Recebeu um novo comentário na sua publicação na comunidade.");
 
   revalidarFeedENotificacoes();
-  return { sucesso: true, idComentarioPai: idPai };
+  return { sucesso: true, comentario: construirComentario(criado), idComentarioPai: idPai };
+}
+
+export async function editarComentarioServer(idComentario: unknown, conteudo: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para editar o comentário." };
+
+  const identificador = validarIdentificador(idComentario, "O comentário");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const validacao = validarTextoSeguro(conteudo, "O comentário", { obrigatorio: true, maxLength: 500 });
+  if (!validacao.ok) return { erro: validacao.erro };
+
+  const comentario = await prisma.comentarioPublicacao.findUnique({
+    where: { id: identificador.valor },
+    select: { id: true, idAutor: true },
+  });
+  if (!comentario) return { erro: "O comentário já não está disponível." };
+
+  if (comentario.idAutor !== usuario.idUsuario && !usuario.papeis.includes("admin")) {
+    return { erro: "Só o autor pode editar este comentário." };
+  }
+
+  await prisma.comentarioPublicacao.update({
+    where: { id: comentario.id },
+    data: { conteudo: validacao.valor },
+  });
+
+  revalidarFeedENotificacoes();
+  return { sucesso: true, conteudo: validacao.valor };
+}
+
+export async function eliminarComentarioServer(idComentario: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para eliminar o comentário." };
+
+  const identificador = validarIdentificador(idComentario, "O comentário");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const comentario = await prisma.comentarioPublicacao.findUnique({
+    where: { id: identificador.valor },
+    select: { id: true, idAutor: true },
+  });
+  if (!comentario) return { erro: "O comentário já não está disponível." };
+
+  if (comentario.idAutor !== usuario.idUsuario && !usuario.papeis.includes("admin")) {
+    return { erro: "Só o autor pode eliminar este comentário." };
+  }
+
+  await prisma.comentarioPublicacao.delete({ where: { id: comentario.id } });
+
+  revalidarFeedENotificacoes();
+  return { sucesso: true };
+}
+
+export async function alternarGostoComentarioServer(idComentario: unknown) {
+  const usuario = await obterUsuarioAutenticado();
+  if (!usuario) return { erro: "Inicie sessão para gostar deste comentário." };
+
+  const identificador = validarIdentificador(idComentario, "O comentário");
+  if (!identificador.ok) return { erro: identificador.erro };
+
+  const comentario = await prisma.comentarioPublicacao.findFirst({
+    where: { id: identificador.valor, estado: "publicado" },
+    select: { id: true, idAutor: true },
+  });
+  if (!comentario) return { erro: "O comentário já não está disponível." };
+
+  const existente = await prisma.gostoComentarioPublicacao.findUnique({
+    where: { idComentario_idUsuario: { idComentario: comentario.id, idUsuario: usuario.idUsuario } },
+  });
+
+  if (existente) {
+    await prisma.gostoComentarioPublicacao.delete({
+      where: { idComentario_idUsuario: { idComentario: comentario.id, idUsuario: usuario.idUsuario } },
+    });
+  } else {
+    await prisma.gostoComentarioPublicacao.create({
+      data: { idComentario: comentario.id, idUsuario: usuario.idUsuario },
+    });
+    await notificarInteracaoNoFeed(comentario.idAutor, usuario.idUsuario, "Novo gosto no comentário", "Alguém gostou do seu comentário na comunidade.");
+  }
+
+  revalidarFeedENotificacoes();
+  return { sucesso: true, gostou: !existente };
 }
 
 export async function ocultarPublicacaoServer(idPublicacao: unknown) {
   return alterarEstadoPublicacaoServer(idPublicacao, "oculto");
 }
 
+export async function mostrarPublicacaoServer(idPublicacao: unknown) {
+  return alterarEstadoPublicacaoServer(idPublicacao, "publicado");
+}
+
 export async function alterarEstadoPublicacaoServer(idPublicacao: unknown, estado: unknown) {
   const usuario = await obterUsuarioAutenticado();
-  if (!usuario || !usuario.papeis.includes("admin")) return { erro: "Não tem permissão para moderar publicações." };
+  if (!usuario) return { erro: "Inicie sessão para continuar." };
 
   const identificador = validarIdentificador(idPublicacao, "A publicação");
   if (!identificador.ok) return { erro: identificador.erro };
   if (estado !== "publicado" && estado !== "oculto") return { erro: "O estado da publicação é inválido." };
 
-  const atualizada = await prisma.publicacao.updateMany({ where: { id: identificador.valor }, data: { estado } });
-  if (atualizada.count === 0) return { erro: "A publicação não foi encontrada." };
+  const publicacao = await prisma.publicacao.findUnique({
+    where: { id: identificador.valor },
+    select: { id: true, idAutor: true },
+  });
+  if (!publicacao) return { erro: "A publicação não foi encontrada." };
 
-  revalidatePath("/");
+  const podeGerir = publicacao.idAutor === usuario.idUsuario || usuario.papeis.includes("admin");
+  if (!podeGerir) return { erro: "Não tem permissão para alterar esta publicação." };
+
+  await prisma.publicacao.update({ where: { id: publicacao.id }, data: { estado } });
+
+  revalidarFeedENotificacoes();
   revalidatePath("/admin/feed");
-  return { sucesso: true };
+  return { sucesso: true, estado };
 }
 
 export async function criarProjetoVitrineServer(payload: {

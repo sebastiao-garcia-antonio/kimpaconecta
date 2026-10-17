@@ -57,6 +57,7 @@ model Usuario {
   publicacoesCriadas Publicacao[]              @relation("AutorPublicacao")
   comentariosCriados ComentarioPublicacao[]    @relation("AutorComentarioPublicacao")
   gostosPublicacoes  GostoPublicacao[]
+  gostosComentarios  GostoComentarioPublicacao[]
   seguidores         SeguidorUsuario[] @relation("SeguidoRelacao")
   seguindo           SeguidorUsuario[] @relation("SeguidorRelacao")
 
@@ -481,9 +482,22 @@ model ComentarioPublicacao {
   autor           Usuario                @relation("AutorComentarioPublicacao", fields: [idAutor], references: [id], onDelete: Cascade)
   comentarioPai   ComentarioPublicacao?  @relation("RespostaComentario", fields: [idComentarioPai], references: [id], onDelete: Cascade)
   respostas       ComentarioPublicacao[] @relation("RespostaComentario")
+  gostos          GostoComentarioPublicacao[]
 
   @@index([idPublicacao, estado, dataPublicacao])
   @@map("comentario_publicacao")
+}
+
+model GostoComentarioPublicacao {
+  idComentario Int                  @map("id_comentario")
+  idUsuario    Int                  @map("id_usuario")
+  dataGosto    DateTime             @default(now()) @map("data_gosto") @db.Timestamp
+
+  comentario   ComentarioPublicacao @relation(fields: [idComentario], references: [id], onDelete: Cascade)
+  usuario      Usuario              @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@id([idComentario, idUsuario])
+  @@map("gosto_comentario_publicacao")
 }
 
 model GostoPublicacao {
@@ -531,7 +545,7 @@ model LoginSessao {
 
   @@map("login_sessao")
 }
-
+ 
 // 9. AUDITORIA DO SISTEMA
 
 model AuditoriaSistema {

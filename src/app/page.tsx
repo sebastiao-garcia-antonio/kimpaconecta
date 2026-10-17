@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { FeedRepository } from "@/features/feed/repositories/feed.repository";
+import { obterFeedInicial, type FeedInicial } from "@/features/feed/obter-feed-inicial";
 import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
 import { SocketStatusBadge } from "@/components/common/socket-status-badge";
 import {
@@ -27,14 +27,13 @@ export default async function HomePage() {
   const idUsuario = usuario?.id ? Number(usuario.id) : undefined;
   const roles = usuario?.roles || [];
 
-  let publicacoesBrutas: any[] = [];
+  let feed: FeedInicial = { publicacoes: [], proximoCursor: null };
   let projetosVitrine: any[] = [];
   let oportunidades: any[] = [];
-  let seguidosBrutos: any[] = [];
 
   try {
-    const [pubRes, projRes, opRes, segRes] = await Promise.all([
-      FeedRepository.listarPublicacoesPublicas(idUsuario).catch(() => []),
+    const [feedRes, projRes, opRes] = await Promise.all([
+      obterFeedInicial({ idUsuario, nome: usuario?.name, papeis: roles }),
       prisma.projetoVitrine.findMany({
         include: {
           autores: {
@@ -56,44 +55,14 @@ export default async function HomePage() {
         orderBy: { dataPublicacao: "desc" },
         take: 5,
       }).catch(() => []),
-      idUsuario
-        ? prisma.seguidorUsuario.findMany({
-            where: { idSeguidor: idUsuario },
-            select: { idSeguido: true },
-          }).catch(() => [])
-        : Promise.resolve([]),
     ]);
 
-    publicacoesBrutas = pubRes || [];
+    feed = feedRes;
     projetosVitrine = projRes || [];
     oportunidades = opRes || [];
-    seguidosBrutos = segRes || [];
   } catch (dbError) {
     console.error("Erro ao carregar dados da base de dados:", dbError);
   }
-
-  const seguidosSet = new Set(seguidosBrutos.map((s) => s.idSeguido));
-
-  const publicacoes = publicacoesBrutas.map((p) => ({
-    ...p,
-    dataPublicacao: typeof p.dataPublicacao === "string" ? p.dataPublicacao : p.dataPublicacao?.toISOString ? p.dataPublicacao.toISOString() : new Date().toISOString(),
-    autor: {
-      ...p.autor,
-      estaAAcompanhar: seguidosSet.has(p.autor.id),
-    },
-    comentarios: (p.comentarios || []).map((c: any) => ({
-      ...c,
-      dataPublicacao: typeof c.dataPublicacao === "string" ? c.dataPublicacao : c.dataPublicacao?.toISOString ? c.dataPublicacao.toISOString() : new Date().toISOString(),
-    })),
-  }));
-
-  const usuarioAtual = usuario?.id && usuario?.name
-    ? {
-        id: Number(usuario.id),
-        nome: usuario.name,
-        papeis: roles,
-      }
-    : undefined;
 
   let hrefPainel = "/login";
   if (roles.includes("admin")) hrefPainel = "/admin";
@@ -248,7 +217,11 @@ export default async function HomePage() {
 
           {/* Coluna Central — Feed de Publicações Dinâmico */}
           <section className="lg:col-span-2 space-y-6">
-            <FeedComunidadeClient publicacoes={publicacoes as any} usuarioAtual={usuarioAtual} />
+            <FeedComunidadeClient
+              publicacoes={feed.publicacoes}
+              proximoCursor={feed.proximoCursor}
+              usuarioAtual={feed.usuarioAtual}
+            />
           </section>
 
           {/* Painel Direito — Oportunidades & Avisos Dinâmicos */}

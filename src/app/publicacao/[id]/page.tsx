@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, GraduationCap, Home as HomeIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { FeedRepository } from "@/features/feed/repositories/feed.repository";
+import { FeedRepository, serializarPublicacao } from "@/features/feed/repositories/feed.repository";
 import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
 
 export const revalidate = 0;
@@ -33,28 +33,11 @@ export default async function PaginaPublicacao({ params }: { params: Promise<{ i
 
   if (!publicacao) notFound();
 
-  const publicacaoSerializada = {
-    ...publicacao,
-    dataPublicacao:
-      typeof publicacao.dataPublicacao === "string"
-        ? publicacao.dataPublicacao
-        : publicacao.dataPublicacao?.toISOString
-          ? publicacao.dataPublicacao.toISOString()
-          : new Date().toISOString(),
-    comentarios: (publicacao.comentarios || []).map((c: any) => ({
-      ...c,
-      dataPublicacao:
-        typeof c.dataPublicacao === "string"
-          ? c.dataPublicacao
-          : c.dataPublicacao?.toISOString
-            ? c.dataPublicacao.toISOString()
-            : new Date().toISOString(),
-    })),
-  };
+  const publicacaoSerializada = serializarPublicacao(publicacao);
 
   const usuarioAtual =
     usuario?.id && usuario?.name
-      ? { id: Number(usuario.id), nome: usuario.name, papeis: usuario.roles || [] }
+      ? { id: Number(usuario.id), nome: usuario.name, fotoPerfil: null, papeis: usuario.roles || [] }
       : undefined;
 
   let hrefPainel = "/login";
@@ -98,7 +81,7 @@ export default async function PaginaPublicacao({ params }: { params: Promise<{ i
         >
           <ArrowLeft className="h-4 w-4 text-slate-500" /> Voltar ao feed
         </Link>
-        <FeedComunidadeClient publicacoes={[publicacaoSerializada as any]} usuarioAtual={usuarioAtual} mostrarComposer={false} />
+        <FeedComunidadeClient publicacoes={[publicacaoSerializada]} usuarioAtual={usuarioAtual} mostrarComposer={false} />
       </main>
     </div>
   );

@@ -6,6 +6,14 @@ import bcrypt from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { validarVariosTextosSeguros } from "@/lib/validacao-texto";
+import { enviarEmail } from "@/lib/email";
+import { obterDestinoPorPapel } from "@/lib/destino-papel";
+
+const CODIGO_VALIDADE_MINUTOS = 15;
+
+function gerarCodigoSeisDigitos(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 export async function criarSolicitacaoAcesso(formData: any) {
   const result = registroSchema.safeParse(formData);
@@ -107,6 +115,16 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
 
   const { identifier, password } = result.data;
 
+  const obterDestino = async () => {
+    try {
+      const utilizador = await AuthRepository.findUserByIdentifier(identifier);
+      const papeis = utilizador?.perfis.map((p) => p.perfil.nomePerfil) ?? [];
+      return obterDestinoPorPapel(papeis);
+    } catch {
+      return "/estudante";
+    }
+  };
+
   try {
     const res = await signIn("credentials", {
       identifier,
@@ -118,7 +136,7 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
       return { error: "Identificador ou senha incorretos." };
     }
 
-    return { success: true };
+    return { success: true, destino: await obterDestino() };
   } catch (error: any) {
     const errorStr = String(error?.message || error?.digest || error?.name || error || "");
     const isRedirect =
@@ -127,7 +145,7 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
       error?.name === "RedirectError";
 
     if (isRedirect) {
-      return { success: true };
+      return { success: true, destino: await obterDestino() };
     }
 
     if (error?.type === "CredentialsSignin" || error instanceof AuthError || error?.name === "CredentialsSignin") {
@@ -136,5 +154,126 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
 
     console.error("Erro inesperado no loginUsuarioAction:", error);
     return { error: "Identificador ou senha incorretos." };
+  }
+}
+
+export async function solicitarRecuperacaoSenha(data: { email: string }) {
+  const email = String(data?.email || "").trim().toLowerCase();
+
+  const validacaoTexto = validarVariosTextosSeguros([
+    { nome: "email", valor: email, obrigatorio: true, maxLength: 120 }
+  ]);
+
+  if (!validacaoTexto.ok) return { error: validacaoTexto.erro };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Insira um e-mail válido." };
+  }
+
+  try {
+    const user = await AuthRepository.findUserByEmail(email);
+    if (!user) {
+      return { error: "Não encontrámos nenhuma conta associada a este e-mail." };
+    }
+    if (user.status !== "ativo") {
+      return { error: "Esta conta não está ativa. Contacte o coordenador do curso." };
+    }
+
+    const codigo = gerarCodigoSeisDigitos();
+    const tokenHash = await bcrypt.hash(codigo, 10);
+    const expiraEm = new Date(Date.now() + CODIGO_VALIDADE_MINUTOS * 60 * 1000);
+
+    await AuthRepository.invalidarRecuperacoesDoUsuario(user.id);
+    await AuthRepository.criarCodigoRecuperacao(user.id, tokenHash, expiraEm);
+
+    const mensagem = [
+      `Olá, ${user.nome}.`,
+      "",
+      "Recebemos um pedido para redefinir a senha da sua conta na Kimpa Connect.",
+      `O seu código de verificação é: ${codigo}`,
+      "",
+      `Este código é válido durante ${CODIGO_VALIDADE_MINUTOS} minutos.`,
+      "Se não solicitou esta alteração, ignore este e-mail.",
+    ].join("\n");
+
+    const resposta = await enviarEmail(user.email, "Código de recuperação de senha", mensagem);
+
+    if (resposta && (resposta as any).skipped) {
+      console.warn(`[RECUPERACAO] SMTP não configurado. Código para ${user.email}: ${codigo}`);
+    } else if (!resposta?.success) {
+      return { error: "Não foi possível enviar o e-mail de recuperação. Tente novamente." };
+    }
+
+    return {
+      success: true,
+      message: `Enviámos um código de 6 dígitos para ${user.email}.`,
+    };
+  } catch (error) {
+    console.error("Erro ao solicitar recuperação de senha:", error);
+    return { error: "Não foi possível processar o pedido. Tente novamente." };
+  }
+}
+
+export async function verificarCodigoRecuperacao(data: { email: string; codigo: string }) {
+  const email = String(data?.email || "").trim().toLowerCase();
+  const codigo = String(data?.codigo || "").trim();
+
+  if (!email) return { error: "E-mail inválido." };
+  if (!/^\d{6}$/.test(codigo)) return { error: "O código deve ter 6 dígitos." };
+
+  try {
+    const user = await AuthRepository.findUserByEmail(email);
+    if (!user) return { error: "Não encontrámos nenhuma conta associada a este e-mail." };
+
+    const registro = await AuthRepository.obterRecuperacaoPendente(user.id);
+    if (!registro) {
+      return { error: "Código inválido ou expirado. Solicite um novo código." };
+    }
+
+    const valido = await bcrypt.compare(codigo, registro.token);
+    if (!valido) return { error: "Código incorreto. Verifique e tente novamente." };
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao verificar código de recuperação:", error);
+    return { error: "Não foi possível validar o código. Tente novamente." };
+  }
+}
+
+export async function redefinirSenhaComCodigo(data: {
+  email: string;
+  codigo: string;
+  novaSenha: string;
+  confirmarSenha: string;
+}) {
+  const email = String(data?.email || "").trim().toLowerCase();
+  const codigo = String(data?.codigo || "").trim();
+  const novaSenha = String(data?.novaSenha || "");
+  const confirmarSenha = String(data?.confirmarSenha || "");
+
+  if (!email) return { error: "E-mail inválido." };
+  if (!/^\d{6}$/.test(codigo)) return { error: "O código deve ter 6 dígitos." };
+  if (novaSenha.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+  if (novaSenha !== confirmarSenha) return { error: "As senhas não coincidem." };
+
+  try {
+    const user = await AuthRepository.findUserByEmail(email);
+    if (!user) return { error: "Não encontrámos nenhuma conta associada a este e-mail." };
+
+    const registro = await AuthRepository.obterRecuperacaoPendente(user.id);
+    if (!registro) {
+      return { error: "Código inválido ou expirado. Solicite um novo código." };
+    }
+
+    const valido = await bcrypt.compare(codigo, registro.token);
+    if (!valido) return { error: "Código incorreto. Verifique e tente novamente." };
+
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    await AuthRepository.atualizarSenhaUsuario(user.id, senhaHash);
+    await AuthRepository.marcarRecuperacaoUtilizada(registro.idRecuperacao);
+
+    return { success: true, message: "Senha redefinida com sucesso. Já pode iniciar sessão." };
+  } catch (error) {
+    console.error("Erro ao redefinir senha:", error);
+    return { error: "Não foi possível redefinir a senha. Tente novamente." };
   }
 }

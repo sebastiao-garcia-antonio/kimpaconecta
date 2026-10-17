@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decode } from "next-auth/jwt";
 
-async function decodificarPapeis(rawToken: string, isSecure: boolean): Promise<string[]> {
+async function descodificarSessao(
+  rawToken: string,
+  isSecure: boolean
+): Promise<{ roles: string[] } | null> {
   const secret =
     process.env.AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
@@ -15,14 +18,28 @@ async function decodificarPapeis(rawToken: string, isSecure: boolean): Promise<s
   for (const salt of salts) {
     try {
       const decoded = await decode({ token: rawToken, secret, salt });
-      if (decoded?.roles && Array.isArray(decoded.roles)) {
-        return decoded.roles as string[];
+      if (decoded) {
+        return {
+          roles: Array.isArray(decoded.roles) ? (decoded.roles as string[]) : [],
+        };
       }
     } catch {
-      // continua para o próximo salt
+      // token inválido para este salt, tenta o próximo
     }
   }
-  return [];
+  return null;
+}
+
+function limparCookiesDeSessao(response: NextResponse): NextResponse {
+  for (const nome of [
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+  ]) {
+    response.cookies.delete(nome);
+  }
+  return response;
 }
 
 function obterDestinoPorPapel(roles: string[]): string {
@@ -53,21 +70,33 @@ export async function middleware(req: NextRequest) {
     req.cookies.get("__Secure-next-auth.session-token")?.value;
 
   const isPublicRoute =
-    ["/", "/login", "/registro", "/auth-error"].includes(pathname) ||
+    ["/", "/login", "/registro", "/reset-password", "/auth-error"].includes(pathname) ||
     pathname.startsWith("/perfil/") ||
     pathname.startsWith("/publicacao/");
 
-  // Redirecionar para login se tentar aceder a áreas privadas sem sessão
-  if (!rawToken && !isPublicRoute) {
+  // Valida a sessão a partir do token (não basta o cookie existir)
+  const sessao = rawToken ? await descodificarSessao(rawToken, isSecure) : null;
+
+  // Cookie presente mas inválido/expirado → tratar como visitante e limpá-lo
+  if (rawToken && !sessao) {
+    if (isPublicRoute) {
+      return limparCookiesDeSessao(NextResponse.next());
+    }
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return limparCookiesDeSessao(NextResponse.redirect(loginUrl));
+  }
+
+  // Redirecionar para login se tentar aceder a áreas privadas sem sessão válida
+  if (!sessao && !isPublicRoute) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirecionar utilizadores com sessão no /login para o respetivo dashboard
-  if (rawToken && pathname === "/login") {
-    const roles = await decodificarPapeis(rawToken, isSecure);
-    const destino = obterDestinoPorPapel(roles);
+  // Redirecionar utilizadores com sessão válida no /login para o respetivo dashboard
+  if (sessao && pathname === "/login") {
+    const destino = obterDestinoPorPapel(sessao.roles);
     return NextResponse.redirect(new URL(destino, req.url));
   }
 

@@ -1,12 +1,12 @@
 # Dockerfile para a Plataforma Kimpa Connect (Next.js + Socket.IO + Prisma)
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
-RUN apk add --no-libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 # Dependências
 FROM base AS deps
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 # Builder

@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  PanelRight,
   ShieldAlert,
   ShieldCheck,
   Users,
@@ -39,59 +40,76 @@ interface ItemNavegacao {
   section?: string;
 }
 
-const navegacaoPorPapel: Record<string, ItemNavegacao[]> = {
-  admin: [
-    { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Principal" },
-    { label: "Notificações", href: "/notificacoes", icon: <Bell className="h-4 w-4" /> },
-    { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" /> },
-    { label: "Painel geral", href: "/admin", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
-    { label: "Gestão de utilizadores", href: "/admin/usuarios", icon: <Users className="h-4 w-4" />, section: "Gestão" },
-    { label: "Triagem de acessos", href: "/admin/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
-    { label: "Moderação do feed", href: "/admin/feed", icon: <Bell className="h-4 w-4" />, section: "Comunidade" },
-    { label: "Anti-fraude", href: "/admin/proctoring", icon: <ShieldAlert className="h-4 w-4" />, section: "Segurança" },
-    { label: "Estrutura académica", href: "/admin/academico", icon: <BookOpen className="h-4 w-4" />, section: "Académico" },
-    { label: "Competências", href: "/admin/competencias", icon: <Award className="h-4 w-4" /> },
-    { label: "Vitrine de projetos", href: "/admin/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
-  ],
-  professor: [
-    { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Principal" },
-    { label: "Notificações", href: "/notificacoes", icon: <Bell className="h-4 w-4" /> },
-    { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" /> },
-    { label: "Visão geral", href: "/professor", icon: <BarChart2 className="h-4 w-4" />, section: "Painel geral" },
-    { label: "Disciplinas e presenças", href: "/professor/classes", icon: <BookOpen className="h-4 w-4" />, section: "Aulas e diários" },
-    { label: "Avaliações e indicadores", href: "/professor/exams", icon: <FileText className="h-4 w-4" /> },
-    { label: "Grupos de trabalho", href: "/professor/groups", icon: <Users className="h-4 w-4" /> },
-    { label: "Sala de monitorização", href: "/professor/proctoring", icon: <ShieldAlert className="h-4 w-4" />, section: "Segurança e integração" },
-    { label: "Carreiras e vagas", href: "/professor/opportunities", icon: <Briefcase className="h-4 w-4" /> },
-    { label: "Vitrine de projetos", href: "/professor/projects", icon: <Award className="h-4 w-4" /> },
-  ],
-  estudante: [
-    { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Principal" },
-    { label: "Painel", href: "/estudante", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
-    { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" /> },
-    { label: "Notificações", href: "/notificacoes", icon: <Bell className="h-4 w-4" /> },
-    { label: "Disciplinas", href: "/estudante/disciplinas", icon: <BookOpen className="h-4 w-4" />, section: "Académico" },
-    { label: "Avaliações", href: "/estudante/avaliacoes", icon: <FileText className="h-4 w-4" /> },
-    { label: "Notas e pautas", href: "/estudante/notas", icon: <FileText className="h-4 w-4" /> },
-    { label: "Presenças", href: "/estudante/presencas", icon: <CheckCircle2 className="h-4 w-4" /> },
-{ label: "Grupos", href: "/estudante/grupos", icon: <Users className="h-4 w-4" /> },
-    { label: "Mentores", href: "/estudante/mentores", icon: <Award className="h-4 w-4" /> },
-    { label: "Carreiras", href: "/estudante/carreiras", icon: <Briefcase className="h-4 w-4" />, section: "Oportunidades" },
-    { label: "Portfólio", href: "/estudante/portfolio", icon: <Award className="h-4 w-4" /> },
-  ],
-  coordenador: [
-    { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Principal" },
-    { label: "Notificações", href: "/notificacoes", icon: <Bell className="h-4 w-4" /> },
-    { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" /> },
-    { label: "Painel", href: "/coordenador", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
-    { label: "Cursos", href: "/coordenador/cursos", icon: <Building className="h-4 w-4" />, section: "Gestão académica" },
-    { label: "Solicitações", href: "/coordenador/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
-{ label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
-    { label: "Turmas", href: "/coordenador/turmas", icon: <Users className="h-4 w-4" /> },
-    { label: "Estudantes", href: "/coordenador/estudantes", icon: <GraduationCap className="h-4 w-4" /> },
-    { label: "Relatórios", href: "/coordenador/relatorios", icon: <BarChart2 className="h-4 w-4" />, section: "Indicadores" },
-    { label: "Projetos", href: "/coordenador/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
-  ],
+interface MenuPorPapel {
+  esquerda: ItemNavegacao[];
+  direita: ItemNavegacao[];
+}
+
+const navegacaoPorPapel: Record<string, MenuPorPapel> = {
+  admin: {
+    esquerda: [
+      { label: "Painel geral", href: "/admin", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
+      { label: "Gestão de utilizadores", href: "/admin/usuarios", icon: <Users className="h-4 w-4" />, section: "Gestão" },
+      { label: "Triagem de acessos", href: "/admin/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
+      { label: "Estrutura académica", href: "/admin/academico", icon: <BookOpen className="h-4 w-4" />, section: "Académico" },
+      { label: "Competências", href: "/admin/competencias", icon: <Award className="h-4 w-4" /> },
+      { label: "Vitrine de projetos", href: "/admin/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
+    ],
+    direita: [
+      { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" />, section: "Comunicação" },
+      { label: "Moderação do feed", href: "/admin/feed", icon: <Bell className="h-4 w-4" /> },
+      { label: "Anti-fraude", href: "/admin/proctoring", icon: <ShieldAlert className="h-4 w-4" />, section: "Segurança" },
+      { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Conta" },
+    ],
+  },
+  professor: {
+    esquerda: [
+      { label: "Visão geral", href: "/professor", icon: <BarChart2 className="h-4 w-4" />, section: "Painel geral" },
+      { label: "Disciplinas e presenças", href: "/professor/classes", icon: <BookOpen className="h-4 w-4" />, section: "Aulas e diários" },
+      { label: "Avaliações e indicadores", href: "/professor/exams", icon: <FileText className="h-4 w-4" /> },
+      { label: "Grupos de trabalho", href: "/professor/groups", icon: <Users className="h-4 w-4" /> },
+      { label: "Vitrine de projetos", href: "/professor/projects", icon: <Award className="h-4 w-4" />, section: "Projetos" },
+    ],
+    direita: [
+      { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" />, section: "Comunicação" },
+      { label: "Sala de monitorização", href: "/professor/proctoring", icon: <ShieldAlert className="h-4 w-4" />, section: "Segurança" },
+      { label: "Carreiras e vagas", href: "/professor/opportunities", icon: <Briefcase className="h-4 w-4" />, section: "Oportunidades" },
+      { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Conta" },
+    ],
+  },
+  estudante: {
+    esquerda: [
+      { label: "Painel", href: "/estudante", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
+      { label: "Disciplinas", href: "/estudante/disciplinas", icon: <BookOpen className="h-4 w-4" />, section: "Académico" },
+      { label: "Notas e pautas", href: "/estudante/notas", icon: <FileText className="h-4 w-4" /> },
+      { label: "Mentores", href: "/estudante/mentores", icon: <Award className="h-4 w-4" /> },
+      { label: "Grupos", href: "/estudante/grupos", icon: <Users className="h-4 w-4" /> },
+    ],
+    direita: [
+      { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" />, section: "Comunicação" },
+      { label: "Avaliações", href: "/estudante/avaliacoes", icon: <FileText className="h-4 w-4" />, section: "Académico" },
+      { label: "Portfólio", href: "/estudante/portfolio", icon: <Award className="h-4 w-4" />, section: "Pessoal" },
+      { label: "Perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" /> },
+      { label: "Presenças", href: "/estudante/presencas", icon: <CheckCircle2 className="h-4 w-4" /> },
+      { label: "Carreiras", href: "/estudante/carreiras", icon: <Briefcase className="h-4 w-4" /> },
+    ],
+  },
+  coordenador: {
+    esquerda: [
+      { label: "Painel", href: "/coordenador", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
+      { label: "Cursos", href: "/coordenador/cursos", icon: <Building className="h-4 w-4" />, section: "Gestão académica" },
+      { label: "Solicitações", href: "/coordenador/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
+      { label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
+      { label: "Turmas", href: "/coordenador/turmas", icon: <Users className="h-4 w-4" /> },
+      { label: "Estudantes", href: "/coordenador/estudantes", icon: <GraduationCap className="h-4 w-4" /> },
+      { label: "Relatórios", href: "/coordenador/relatorios", icon: <BarChart2 className="h-4 w-4" />, section: "Indicadores" },
+      { label: "Projetos", href: "/coordenador/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
+    ],
+    direita: [
+      { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" />, section: "Comunicação" },
+      { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Conta" },
+    ],
+  },
 };
 
 const rotulosPapel: Record<string, string> = {
@@ -103,6 +121,7 @@ const rotulosPapel: Record<string, string> = {
 
 interface DashboardShellProps {
   role: "admin" | "professor" | "coordenador" | "estudante";
+  userId?: string | number;
   userName: string;
   fotoPerfil?: string;
   notificacoesNaoLidas: number;
@@ -113,23 +132,25 @@ interface DashboardShellProps {
   children: ReactNode;
 }
 
-export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, notificacoesNaoLidas, children }: DashboardShellProps) {
-  const [menuMovelAberto, setMenuMovelAberto] = useState(false);
+export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAcademico, notificacoesNaoLidas, children }: DashboardShellProps) {
+  const [menuMovel, setMenuMovel] = useState<"esquerda" | "direita" | null>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const itensNavegacao = navegacaoPorPapel[role] || [];
+  const menu = navegacaoPorPapel[role] || { esquerda: [], direita: [] };
+  const itensEsquerda = menu.esquerda;
+  const itensDireita = menu.direita;
   const anoFiltro = role === "estudante" ? searchParams.get("ano") : null;
 
   useEffect(() => {
-    if (!menuMovelAberto) return;
+    if (!menuMovel) return;
 
     const fecharComEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuMovelAberto(false);
+      if (event.key === "Escape") setMenuMovel(null);
     };
 
     document.addEventListener("keydown", fecharComEscape);
     return () => document.removeEventListener("keydown", fecharComEscape);
-  }, [menuMovelAberto]);
+  }, [menuMovel]);
 
   const construirHref = (href: string) => {
     if (role !== "estudante" || !anoFiltro) return href;
@@ -164,7 +185,7 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
       const mostrarSecao = item.section && item.section !== secaoActual;
       if (item.section) secaoActual = item.section;
       const ativo = estaAtivo(item.href);
-      const badge = item.href === "/notificacoes" ? notificacoesNaoLidas : item.badge;
+      const badge = item.badge;
 
       return (
         <div key={item.href}>
@@ -175,7 +196,7 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
           )}
           <Link
             href={construirHref(item.href)}
-            onClick={() => setMenuMovelAberto(false)}
+            onClick={() => setMenuMovel(null)}
             aria-current={ativo ? "page" : undefined}
             className={`relative flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
               ativo
@@ -197,57 +218,64 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
     });
   };
 
-  const conteudoLateral = (
-    <>
-<div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setMenuMovelAberto(false)} title="Voltar ao início">
-          <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={36} height={36} className="rounded-xl object-cover shadow-sm" priority />
-          <div>
-            <span className="text-base font-extrabold tracking-tight text-slate-800">Kimpa Connect</span>
-            <span className="mt-0.5 block w-fit rounded-full bg-brand-blue/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-blue">
-              {rotulosPapel[role]}
-            </span>
-          </div>
-        </Link>
-      </div>
+  const avatarUsuario = fotoPerfil ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={fotoPerfil}
+      alt="Foto de perfil"
+      className="h-10 w-10 shrink-0 rounded-xl border-2 border-brand-blue object-cover shadow-md"
+    />
+  ) : (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-green text-sm font-bold text-white shadow-md">
+      {userName.substring(0, 2).toUpperCase()}
+    </div>
+  );
 
-      <nav aria-label="Navegação principal" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
-        {renderizarItensNavegacao(itensNavegacao)}
-      </nav>
+  const cabecalhoLateral = (
+    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
+      <Link href="/" className="flex items-center gap-3" onClick={() => setMenuMovel(null)} title="Voltar ao início">
+        <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={36} height={36} className="rounded-xl object-cover shadow-sm" priority />
+        <div>
+          <span className="text-base font-extrabold tracking-tight text-slate-800">Kimpa Connect</span>
+          <span className="mt-0.5 block w-fit rounded-full bg-brand-blue/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand-blue">
+            {rotulosPapel[role]}
+          </span>
+        </div>
+      </Link>
+    </div>
+  );
 
-      <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 p-4">
-<div className="flex items-center gap-3">
-          {fotoPerfil ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fotoPerfil}
-              alt="Foto de perfil"
-              className="h-10 w-10 shrink-0 rounded-xl border-2 border-brand-blue object-cover shadow-md"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-green text-sm font-bold text-white shadow-md">
-              {userName.substring(0, 2).toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            title="Terminar sessão"
-            className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400"
-            aria-label="Terminar sessão"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-3 border-t border-slate-200/60 pt-2 flex items-center justify-between">
-          <SocketStatusBadge />
-        </div>
+  const cabecalhoDireita = (
+    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
+      {avatarUsuario}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
       </div>
-    </>
+    </div>
+  );
+
+  const rodapeLateral = (
+    <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 p-4">
+      <SocketStatusBadge userId={userId} />
+    </div>
+  );
+
+  const rodapeDireita = (
+    <div className="shrink-0 border-t border-slate-200 bg-slate-50/80 p-4">
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          title="Terminar sessão"
+          className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400"
+          aria-label="Terminar sessão"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Terminar sessão</span>
+        </button>
+      </div>
+    </div>
   );
 
   return (
@@ -258,29 +286,88 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
       >
         Saltar para o conteúdo principal
       </a>
-      <aside className="z-30 hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
-        {conteudoLateral}
+
+      <aside className="z-30 hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
+        {cabecalhoLateral}
+        <nav aria-label="Navegação lateral esquerda" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
+          {renderizarItensNavegacao(itensEsquerda)}
+        </nav>
+        {rodapeLateral}
       </aside>
 
-<header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMenuMovelAberto(true)}
-          className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
-          aria-label="Abrir menu"
-          aria-controls="navegacao-movel"
-          aria-expanded={menuMovelAberto}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <Link href="/" className="flex items-center gap-2" title="Voltar ao início">
-          <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={28} height={28} className="rounded-lg object-cover" priority />
-          <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
-        </Link>
-      </header>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 shadow-sm backdrop-blur-md lg:h-16 lg:px-6">
+          <button
+            type="button"
+            onClick={() => setMenuMovel("esquerda")}
+            className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue lg:hidden"
+            aria-label="Abrir menu esquerdo"
+            aria-controls="navegacao-movel-esquerda"
+            aria-expanded={menuMovel === "esquerda"}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link href="/" className="flex items-center gap-2 lg:hidden" title="Voltar ao início">
+            <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={28} height={28} className="rounded-lg object-cover" priority />
+            <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
+          </Link>
+
+          <div className="hidden lg:block">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Kimpa Connect</p>
+            <p className="text-sm font-bold text-slate-700">{rotulosPapel[role]}</p>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href={construirHref("/notificacoes")}
+              title="Notificações"
+              aria-label="Notificações"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+            >
+              <Bell className="h-5 w-5" />
+              {notificacoesNaoLidas > 0 && (
+                <span className="absolute right-1 top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                  {notificacoesNaoLidas > 99 ? "99+" : notificacoesNaoLidas}
+                </span>
+              )}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMenuMovel("direita")}
+              className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue lg:hidden"
+              aria-label="Abrir menu direito"
+              aria-controls="navegacao-movel-direita"
+              aria-expanded={menuMovel === "direita"}
+            >
+              <PanelRight className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        <main id="conteudo-principal" className="scrollbar-thin flex-1 overflow-y-auto bg-slate-50">
+          <div className="animate-fadeIn space-y-4 px-4 py-4 lg:px-6 lg:py-6">
+            {role === "estudante" && contextoAcademico && (
+              <FiltroAnoAcademicoClient
+                anosDisponiveis={contextoAcademico.anosDisponiveis}
+                anoActual={contextoAcademico.anoActual}
+              />
+            )}
+            {children}
+          </div>
+        </main>
+      </div>
+
+      <aside className="z-30 hidden w-60 shrink-0 flex-col border-l border-slate-200 bg-white shadow-sm lg:flex">
+        {cabecalhoDireita}
+        <nav aria-label="Navegação lateral direita" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
+          {renderizarItensNavegacao(itensDireita)}
+        </nav>
+        {rodapeDireita}
+      </aside>
 
       <AnimatePresence>
-        {menuMovelAberto && (
+        {menuMovel && (
           <>
             <motion.div
               aria-hidden="true"
@@ -289,41 +376,61 @@ export function DashboardShell({ role, userName, fotoPerfil, contextoAcademico, 
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-              onClick={() => setMenuMovelAberto(false)}
+              onClick={() => setMenuMovel(null)}
             />
-            <motion.aside
-              id="navegacao-movel"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white shadow-xl lg:hidden"
-            >
-              <button
-                type="button"
-                onClick={() => setMenuMovelAberto(false)}
-                className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
-                aria-label="Fechar menu"
+
+            {menuMovel === "esquerda" && (
+              <motion.aside
+                id="navegacao-movel-esquerda"
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white shadow-xl lg:hidden"
               >
-                <X className="h-5 w-5" />
-              </button>
-              {conteudoLateral}
-            </motion.aside>
+                <button
+                  type="button"
+                  onClick={() => setMenuMovel(null)}
+                  className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+                  aria-label="Fechar menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                {cabecalhoLateral}
+                <nav aria-label="Navegação principal" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
+                  {renderizarItensNavegacao(itensEsquerda)}
+                </nav>
+                {rodapeLateral}
+              </motion.aside>
+            )}
+
+            {menuMovel === "direita" && (
+              <motion.aside
+                id="navegacao-movel-direita"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 right-0 top-0 z-50 flex w-72 flex-col border-l border-slate-200 bg-white shadow-xl lg:hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setMenuMovel(null)}
+                  className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+                  aria-label="Fechar menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                {cabecalhoDireita}
+                <nav aria-label="Acesso rápido" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
+                  {renderizarItensNavegacao(itensDireita)}
+                </nav>
+                {rodapeDireita}
+              </motion.aside>
+            )}
           </>
         )}
       </AnimatePresence>
-
-      <main id="conteudo-principal" className="scrollbar-thin flex-1 overflow-y-auto bg-slate-50 pt-14 lg:pt-0">
-        <div className="animate-fadeIn space-y-4 px-4 py-4 lg:px-6 lg:py-6">
-          {role === "estudante" && contextoAcademico && (
-            <FiltroAnoAcademicoClient
-              anosDisponiveis={contextoAcademico.anosDisponiveis}
-              anoActual={contextoAcademico.anoActual}
-            />
-          )}
-          {children}
-        </div>
-      </main>
     </div>
   );
 }

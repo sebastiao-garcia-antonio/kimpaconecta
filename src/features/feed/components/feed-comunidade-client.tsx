@@ -1,14 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Heart,
   Loader2,
   MessageCircle,
   Send,
-  ShieldOff,
   Sparkles,
   UserPlus,
   UserCheck,
@@ -17,59 +15,39 @@ import {
   FileText,
   Paperclip,
   CornerUpLeft,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Eye,
+  EyeOff,
+  Plus,
+  Users,
 } from "lucide-react";
 import {
   alternarGostoPublicacaoServer,
+  alternarGostoComentarioServer,
+  carregarPublicacoesFeedServer,
   criarComentarioPublicacaoServer,
   criarPublicacaoServer,
+  editarComentarioServer,
+  editarPublicacaoServer,
+  eliminarComentarioServer,
+  eliminarPublicacaoServer,
+  obterInteracoesPublicacaoServer,
   ocultarPublicacaoServer,
+  mostrarPublicacaoServer,
 } from "@/features/feed/actions";
 import { alternarAcompanharUsuarioServer } from "@/features/messaging/actions";
-
-type UsuarioAtual = {
-  id: number;
-  nome: string;
-  papeis: string[];
-};
-
-type ComentarioFeed = {
-  id: number;
-  conteudo: string;
-  dataPublicacao: Date | string;
-  autor: {
-    id: number;
-    nome: string;
-    fotoPerfil: string | null;
-  };
-  respostas?: ComentarioFeed[];
-};
-
-type PublicacaoFeed = {
-  id: number;
-  conteudo: string;
-  urlImagem: string | null;
-  dataPublicacao: Date | string;
-  autor: {
-    id: number;
-    nome: string;
-    fotoPerfil: string | null;
-    estaAAcompanhar?: boolean;
-  };
-  comentarios: ComentarioFeed[];
-  gostos: Array<{
-    idUsuario: number;
-  }>;
-  _count: {
-    gostos: number;
-    comentarios: number;
-  };
-};
+import type { ComentarioFeed, PublicacaoFeed, UsuarioAtualFeed } from "@/features/feed/types";
 
 interface FeedComunidadeClientProps {
   publicacoes: PublicacaoFeed[];
-  usuarioAtual?: UsuarioAtual;
+  proximoCursor?: number | null;
+  usuarioAtual?: UsuarioAtualFeed;
   mostrarComposer?: boolean;
 }
+
+type InteracaoUsuario = { id: number; nome: string; fotoPerfil: string | null };
 
 const extensoesImagem = /\.(png|jpe?g|webp|gif|svg|bmp)$/i;
 
@@ -90,6 +68,59 @@ function formatarData(data: Date | string) {
   }).format(new Date(data));
 }
 
+function eImagem(url: string) {
+  return extensoesImagem.test(url.split("?")[0]);
+}
+
+function nomeDoFicheiro(url: string) {
+  const segmentos = url.split("/");
+  return segmentos[segmentos.length - 1];
+}
+
+function contarComentarios(comentarios: ComentarioFeed[]): number {
+  return comentarios.reduce((total, comentario) => total + 1 + contarComentarios(comentario.respostas || []), 0);
+}
+
+function atualizarComentarioEmArvore(
+  comentarios: ComentarioFeed[],
+  id: number,
+  updater: (comentario: ComentarioFeed) => ComentarioFeed
+): ComentarioFeed[] {
+  return comentarios.map((comentario) => {
+    if (comentario.id === id) return updater(comentario);
+    if (comentario.respostas && comentario.respostas.length > 0) {
+      return { ...comentario, respostas: atualizarComentarioEmArvore(comentario.respostas, id, updater) };
+    }
+    return comentario;
+  });
+}
+
+function removerComentarioDaArvore(comentarios: ComentarioFeed[], id: number): ComentarioFeed[] {
+  return comentarios
+    .filter((comentario) => comentario.id !== id)
+    .map((comentario) =>
+      comentario.respostas && comentario.respostas.length > 0
+        ? { ...comentario, respostas: removerComentarioDaArvore(comentario.respostas, id) }
+        : comentario
+    );
+}
+
+function adicionarRespostaNaArvore(
+  comentarios: ComentarioFeed[],
+  idPai: number,
+  resposta: ComentarioFeed
+): ComentarioFeed[] {
+  return comentarios.map((comentario) => {
+    if (comentario.id === idPai) {
+      return { ...comentario, respostas: [...(comentario.respostas || []), resposta] };
+    }
+    if (comentario.respostas && comentario.respostas.length > 0) {
+      return { ...comentario, respostas: adicionarRespostaNaArvore(comentario.respostas, idPai, resposta) };
+    }
+    return comentario;
+  });
+}
+
 function Avatar({ nome, foto, tamanho = "md" }: { nome: string; foto?: string | null; tamanho?: "md" | "sm" }) {
   const classes = tamanho === "sm" ? "h-7 w-7 rounded-lg text-[10px]" : "h-10 w-10 rounded-xl text-xs";
 
@@ -105,22 +136,25 @@ function Avatar({ nome, foto, tamanho = "md" }: { nome: string; foto?: string | 
   );
 }
 
-function eImagem(url: string) {
-  return extensoesImagem.test(url.split("?")[0]);
-}
-
-function nomeDoFicheiro(url: string) {
-  const segmentos = url.split("/");
-  return segmentos[segmentos.length - 1];
-}
-
-export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarComposer = true }: FeedComunidadeClientProps) {
-  const router = useRouter();
+export function FeedComunidadeClient({
+  publicacoes,
+  proximoCursor = null,
+  usuarioAtual,
+  mostrarComposer = true,
+}: FeedComunidadeClientProps) {
   const inputFicheiroRef = useRef<HTMLInputElement | null>(null);
+  const inputFicheiroEdicaoRef = useRef<HTMLInputElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const [itens, setItens] = useState<PublicacaoFeed[]>(publicacoes);
+  const [cursor, setCursor] = useState<number | null>(proximoCursor);
+  const [aCarregarMais, setACarregarMais] = useState(false);
 
   const [publicacao, setPublicacao] = useState("");
-  const [anexoPublicacao, setAnexoPublicacao] = useState<{ url: string; nome: string; tipo: string } | null>(null);
+  const [anexoPublicacao, setAnexoPublicacao] = useState<{ url: string; nome: string } | null>(null);
   const [aCarregarAnexo, setACarregarAnexo] = useState(false);
+  const [composerAberto, setComposerAberto] = useState(false);
+
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<number, boolean>>({});
   const [comentarios, setComentarios] = useState<Record<number, string>>({});
   const [respostasAbertas, setRespostasAbertas] = useState<Record<number, boolean>>({});
@@ -130,11 +164,60 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciarTransicao] = useTransition();
 
-  const podeModerar = Boolean(usuarioAtual?.papeis.includes("admin"));
+  const [menuAberto, setMenuAberto] = useState<number | null>(null);
 
-  const atualizarFeed = () => {
-    router.refresh();
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editarConteudo, setEditarConteudo] = useState("");
+  const [editarAnexo, setEditarAnexo] = useState<{ url: string; nome: string } | null>(null);
+
+  const [comentarioEditandoId, setComentarioEditandoId] = useState<number | null>(null);
+  const [comentarioEditarTexto, setComentarioEditarTexto] = useState("");
+
+  const [interacoesAberta, setInteracoesAberta] = useState<number | null>(null);
+  const [interacoes, setInteracoes] = useState<{ gostos: InteracaoUsuario[]; comentarios: InteracaoUsuario[] } | null>(null);
+  const [aCarregarInteracoes, setACarregarInteracoes] = useState(false);
+
+  const atualizarPublicacaoLocal = (id: number, updater: (publicacao: PublicacaoFeed) => PublicacaoFeed) => {
+    setItens((prev) => prev.map((item) => (item.id === id ? updater(item) : item)));
   };
+
+  const carregarMais = async () => {
+    if (aCarregarMais || cursor === null) return;
+    setACarregarMais(true);
+    try {
+      const resposta = await carregarPublicacoesFeedServer(cursor);
+      if (resposta?.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      if (resposta?.publicacoes) {
+        setItens((prev) => {
+          const ids = new Set(prev.map((item) => item.id));
+          return [...prev, ...resposta.publicacoes.filter((item) => !ids.has(item.id))];
+        });
+        setCursor(resposta.proximoCursor ?? null);
+      }
+    } catch {
+      setErro("Não foi possível carregar mais publicações.");
+    } finally {
+      setACarregarMais(false);
+    }
+  };
+
+  useEffect(() => {
+    const elemento = sentinelRef.current;
+    if (!elemento || cursor === null) return;
+
+    const observer = new IntersectionObserver(
+      (entradas) => {
+        if (entradas[0]?.isIntersecting) carregarMais();
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(elemento);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor, aCarregarMais]);
 
   const publicar = () => {
     setErro(null);
@@ -146,19 +229,24 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
         setErro(resposta.erro);
         return;
       }
-
+      if (resposta.publicacao) {
+        setItens((prev) => [resposta.publicacao as PublicacaoFeed, ...prev]);
+      }
       setPublicacao("");
       setAnexoPublicacao(null);
+      setComposerAberto(false);
       setMensagem("Publicação partilhada com a comunidade.");
-      atualizarFeed();
     });
   };
 
-  const anexarFicheiro = async (ficheiro: File) => {
+  const carregarFicheiro = async (
+    ficheiro: File,
+    definir: (valor: { url: string; nome: string } | null) => void,
+    definirCarregamento: (valor: boolean) => void
+  ) => {
     setErro(null);
     setMensagem(null);
-    setACarregarAnexo(true);
-
+    definirCarregamento(true);
     try {
       const dados = new FormData();
       dados.append("file", ficheiro);
@@ -168,16 +256,14 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
       const resultado = await resposta.json();
 
       if (!resposta.ok) {
-        setErro(resultado.error || "Não foi possível anexar o ficheiro.");
+        setErro(resultado.error || "Não foi possível anexar a imagem.");
         return;
       }
-
-      setAnexoPublicacao({ url: resultado.url, nome: resultado.nome || ficheiro.name, tipo: resultado.tipo || "" });
+      definir({ url: resultado.url, nome: resultado.nome || ficheiro.name });
     } catch {
-      setErro("Erro ao enviar o ficheiro. Tente novamente.");
+      setErro("Erro ao enviar a imagem. Tente novamente.");
     } finally {
-      setACarregarAnexo(false);
-      if (inputFicheiroRef.current) inputFicheiroRef.current.value = "";
+      definirCarregamento(false);
     }
   };
 
@@ -191,24 +277,24 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
         setErro(resposta.error);
         return;
       }
-
       setSeguindoEstado((prev) => ({ ...prev, [idAutor]: resposta.seguindo ?? false }));
-      setMensagem(resposta.seguindo ? "Passou a acompanhar este utilizador! Já pode conversar em privado." : "Deixou de acompanhar.");
-      atualizarFeed();
+      setMensagem(resposta.seguindo ? "Passou a acompanhar este utilizador!" : "Deixou de acompanhar.");
     });
   };
 
   const alternarGosto = (idPublicacao: number) => {
     setErro(null);
-
     iniciarTransicao(async () => {
       const resposta = await alternarGostoPublicacaoServer(idPublicacao);
       if (resposta.erro) {
         setErro(resposta.erro);
         return;
       }
-
-      atualizarFeed();
+      atualizarPublicacaoLocal(idPublicacao, (item) => ({
+        ...item,
+        gostou: resposta.gostou,
+        _count: { ...item._count, gostos: Math.max(0, item._count.gostos + (resposta.gostou ? 1 : -1)) },
+      }));
     });
   };
 
@@ -219,14 +305,18 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
 
     iniciarTransicao(async () => {
       const resposta = await criarComentarioPublicacaoServer(idPublicacao, conteudo);
-      if (resposta.erro) {
-        setErro(resposta.erro);
+      if (resposta.erro || !resposta.comentario) {
+        setErro(resposta.erro || "Não foi possível comentar.");
         return;
       }
-
-      setComentarios((estadoActual) => ({ ...estadoActual, [idPublicacao]: "" }));
+      setComentarios((estado) => ({ ...estado, [idPublicacao]: "" }));
+      atualizarPublicacaoLocal(idPublicacao, (item) => ({
+        ...item,
+        comentarios: [...item.comentarios, resposta.comentario as ComentarioFeed],
+        _count: { ...item._count, comentarios: item._count.comentarios + 1 },
+      }));
+      setComentariosAbertos((estado) => ({ ...estado, [idPublicacao]: true }));
       setMensagem("Comentário publicado.");
-      atualizarFeed();
     });
   };
 
@@ -237,37 +327,165 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
 
     iniciarTransicao(async () => {
       const resposta = await criarComentarioPublicacaoServer(idPublicacao, conteudo, idComentario);
-      if (resposta.erro) {
-        setErro(resposta.erro);
+      if (resposta.erro || !resposta.comentario) {
+        setErro(resposta.erro || "Não foi possível responder.");
         return;
       }
-
-      setRespostas((estadoActual) => ({ ...estadoActual, [idComentario]: "" }));
-      setRespostasAbertas((estadoActual) => ({ ...estadoActual, [idComentario]: false }));
+      setRespostas((estado) => ({ ...estado, [idComentario]: "" }));
+      setRespostasAbertas((estado) => ({ ...estado, [idComentario]: false }));
+      atualizarPublicacaoLocal(idPublicacao, (item) => ({
+        ...item,
+        comentarios: adicionarRespostaNaArvore(item.comentarios, idComentario, resposta.comentario as ComentarioFeed),
+        _count: { ...item._count, comentarios: item._count.comentarios + 1 },
+      }));
       setMensagem("Resposta enviada.");
-      atualizarFeed();
     });
   };
 
-  const ocultar = (idPublicacao: number) => {
+  const alternarGostoComentario = (idPublicacao: number, idComentario: number) => {
     setErro(null);
-    setMensagem(null);
-
     iniciarTransicao(async () => {
-      const resposta = await ocultarPublicacaoServer(idPublicacao);
+      const resposta = await alternarGostoComentarioServer(idComentario);
       if (resposta.erro) {
         setErro(resposta.erro);
         return;
       }
-
-      setMensagem("Publicação ocultada da área pública.");
-      atualizarFeed();
+      atualizarPublicacaoLocal(idPublicacao, (item) => ({
+        ...item,
+        comentarios: atualizarComentarioEmArvore(item.comentarios, idComentario, (comentario) => ({
+          ...comentario,
+          gostou: resposta.gostou,
+          _count: { gostos: Math.max(0, (comentario._count?.gostos ?? 0) + (resposta.gostou ? 1 : -1)) },
+        })),
+      }));
     });
+  };
+
+  const iniciarEdicaoPublicacao = (item: PublicacaoFeed) => {
+    setMenuAberto(null);
+    setErro(null);
+    setEditandoId(item.id);
+    setEditarConteudo(item.conteudo);
+    setEditarAnexo(item.urlImagem ? { url: item.urlImagem, nome: nomeDoFicheiro(item.urlImagem) } : null);
+  };
+
+  const guardarEdicaoPublicacao = (id: number) => {
+    setErro(null);
+    iniciarTransicao(async () => {
+      const resposta = await editarPublicacaoServer(id, editarConteudo, editarAnexo?.url ?? "");
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      atualizarPublicacaoLocal(id, (item) => ({
+        ...item,
+        conteudo: resposta.conteudo ?? item.conteudo,
+        urlImagem: resposta.urlImagem ?? null,
+      }));
+      setEditandoId(null);
+      setMensagem("Publicação atualizada.");
+    });
+  };
+
+  const eliminarPublicacao = (id: number) => {
+    setMenuAberto(null);
+    setErro(null);
+    iniciarTransicao(async () => {
+      const resposta = await eliminarPublicacaoServer(id);
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      setItens((prev) => prev.filter((item) => item.id !== id));
+      setMensagem("Publicação eliminada.");
+    });
+  };
+
+  const alternarOcultoPublicacao = (item: PublicacaoFeed) => {
+    setMenuAberto(null);
+    setErro(null);
+    const vaiOcultar = item.estado !== "oculto";
+    iniciarTransicao(async () => {
+      const resposta = vaiOcultar ? await ocultarPublicacaoServer(item.id) : await mostrarPublicacaoServer(item.id);
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      atualizarPublicacaoLocal(item.id, (atual) => ({ ...atual, estado: vaiOcultar ? "oculto" : "publicado" }));
+      setMensagem(vaiOcultar ? "Publicação ocultada. Só você a consegue ver." : "Publicação visível novamente para a comunidade.");
+    });
+  };
+
+  const iniciarEdicaoComentario = (comentario: ComentarioFeed) => {
+    setErro(null);
+    setComentarioEditandoId(comentario.id);
+    setComentarioEditarTexto(comentario.conteudo);
+  };
+
+  const guardarEdicaoComentario = (idPublicacao: number, idComentario: number) => {
+    setErro(null);
+    iniciarTransicao(async () => {
+      const resposta = await editarComentarioServer(idComentario, comentarioEditarTexto);
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      atualizarPublicacaoLocal(idPublicacao, (item) => ({
+        ...item,
+        comentarios: atualizarComentarioEmArvore(item.comentarios, idComentario, (comentario) => ({
+          ...comentario,
+          conteudo: resposta.conteudo ?? comentario.conteudo,
+        })),
+      }));
+      setComentarioEditandoId(null);
+      setMensagem("Comentário atualizado.");
+    });
+  };
+
+  const eliminarComentario = (idPublicacao: number, idComentario: number) => {
+    setErro(null);
+    iniciarTransicao(async () => {
+      const resposta = await eliminarComentarioServer(idComentario);
+      if (resposta.erro) {
+        setErro(resposta.erro);
+        return;
+      }
+      atualizarPublicacaoLocal(idPublicacao, (item) => {
+        const antes = contarComentarios(item.comentarios);
+        const comentariosAtualizados = removerComentarioDaArvore(item.comentarios, idComentario);
+        const removidos = antes - contarComentarios(comentariosAtualizados);
+        return {
+          ...item,
+          comentarios: comentariosAtualizados,
+          _count: { ...item._count, comentarios: Math.max(0, item._count.comentarios - removidos) },
+        };
+      });
+      setMensagem("Comentário eliminado.");
+    });
+  };
+
+  const abrirInteracoes = (idPublicacao: number) => {
+    setInteracoesAberta(idPublicacao);
+    setInteracoes(null);
+    setACarregarInteracoes(true);
+    obterInteracoesPublicacaoServer(idPublicacao)
+      .then((resposta) => {
+        if (resposta && "gostos" in resposta && resposta.gostos) {
+          setInteracoes({ gostos: resposta.gostos, comentarios: resposta.comentarios });
+        }
+      })
+      .finally(() => setACarregarInteracoes(false));
   };
 
   const renderizarComentario = (comentario: ComentarioFeed, idPublicacao: number, nivel = 0) => {
     const respostaAberta = respostasAbertas[comentario.id];
+    const emEdicao = comentarioEditandoId === comentario.id;
     const maxRecuo = 4;
+    const gostou = comentario.gostou ?? false;
+    const totalGostos = comentario._count?.gostos ?? 0;
+    const podeGerir = Boolean(
+      usuarioAtual && (usuarioAtual.id === comentario.autor.id || usuarioAtual.papeis.includes("admin"))
+    );
 
     return (
       <div key={comentario.id} className={`rounded-xl bg-white p-3 ${nivel > 0 ? "ml-3 border-l-2 border-slate-100" : ""}`}>
@@ -282,17 +500,81 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
           </div>
           <span className="text-[11px] text-slate-400">{formatarData(comentario.dataPublicacao)}</span>
         </div>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{comentario.conteudo}</p>
 
-        {usuarioAtual && (
+        {emEdicao ? (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={comentarioEditarTexto}
+              onChange={(evento) => setComentarioEditarTexto(evento.target.value)}
+              maxLength={500}
+              rows={2}
+              className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus-visible:outline-brand-blue"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={pendente || !comentarioEditarTexto.trim()}
+                onClick={() => guardarEdicaoComentario(idPublicacao, comentario.id)}
+                className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+              >
+                Guardar
+              </button>
+              <button
+                type="button"
+                onClick={() => setComentarioEditandoId(null)}
+                className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-1 text-sm leading-6 text-slate-600">{comentario.conteudo}</p>
+        )}
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setRespostasAbertas((estadoActual) => ({ ...estadoActual, [comentario.id]: !respostaAberta }))}
-            className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-brand-blue"
+            disabled={pendente || !usuarioAtual}
+            onClick={() => alternarGostoComentario(idPublicacao, comentario.id)}
+            className={`inline-flex items-center gap-1 text-xs font-semibold transition disabled:opacity-60 ${
+              gostou ? "text-rose-600" : "text-slate-500 hover:text-rose-600"
+            }`}
           >
-            <CornerUpLeft className="h-3.5 w-3.5" /> Responder
+            <Heart className={`h-3.5 w-3.5 ${gostou ? "fill-current" : ""}`} />
+            {totalGostos > 0 ? totalGostos : "Gosto"}
           </button>
-        )}
+
+          {usuarioAtual && (
+            <button
+              type="button"
+              onClick={() => setRespostasAbertas((estado) => ({ ...estado, [comentario.id]: !respostaAberta }))}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-brand-blue"
+            >
+              <CornerUpLeft className="h-3.5 w-3.5" /> Responder
+            </button>
+          )}
+
+          {podeGerir && !emEdicao && (
+            <>
+              <button
+                type="button"
+                onClick={() => iniciarEdicaoComentario(comentario)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-brand-blue"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </button>
+              <button
+                type="button"
+                disabled={pendente}
+                onClick={() => eliminarComentario(idPublicacao, comentario.id)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-rose-600 disabled:opacity-60"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Eliminar
+              </button>
+            </>
+          )}
+        </div>
 
         {respostaAberta && usuarioAtual && (
           <form
@@ -306,7 +588,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
             <input
               id={`resposta-${comentario.id}`}
               value={respostas[comentario.id] || ""}
-              onChange={(evento) => setRespostas((estadoActual) => ({ ...estadoActual, [comentario.id]: evento.target.value }))}
+              onChange={(evento) => setRespostas((estado) => ({ ...estado, [comentario.id]: evento.target.value }))}
               maxLength={500}
               placeholder={`Responder a ${comentario.autor.nome}...`}
               className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus-visible:outline-brand-blue"
@@ -322,16 +604,13 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
         )}
 
         {comentario.respostas && comentario.respostas.length > 0 && (
-          <div className={`space-y-2 ${nivel >= maxRecuo ? "" : "ml-3 border-l-2 border-slate-100 pl-3"} ${nivel > 0 ? "mt-2" : "mt-2"}`}>
+          <div className={`space-y-2 ${nivel >= maxRecuo ? "" : "ml-3 border-l-2 border-slate-100 pl-3"} mt-2`}>
             {comentario.respostas.map((resposta) => renderizarComentario(resposta, idPublicacao, nivel + 1))}
           </div>
         )}
       </div>
     );
   };
-
-  const contarComentariosVisiveis = (comentarios: ComentarioFeed[]): number =>
-    comentarios.reduce((total, comentario) => total + 1 + contarComentariosVisiveis(comentario.respostas || []), 0);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -341,8 +620,23 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
           <h2 className="mt-2 text-2xl font-black text-slate-950">Feed da comunidade</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">Partilha avisos, conquistas, oportunidades e ideias com a Universidade Kimpa Vita.</p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue/10 px-3 py-2 text-xs font-bold text-brand-blue">
-          <Sparkles className="h-4 w-4" /> {publicacoes.length} publicação(ões)
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue/10 px-3 py-2 text-xs font-bold text-brand-blue">
+            <Sparkles className="h-4 w-4" /> {itens.length} publicação(ões)
+          </div>
+          {usuarioAtual && mostrarComposer && (
+            <button
+              type="button"
+              onClick={() => {
+                setErro(null);
+                setMensagem(null);
+                setComposerAberto(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-blue-dark"
+            >
+              <Plus className="h-4 w-4" /> Novo feed
+            </button>
+          )}
         </div>
       </div>
 
@@ -351,94 +645,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
         {erro && <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{erro}</p>}
       </div>
 
-      {usuarioAtual && mostrarComposer ? (
-        <form
-          className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4"
-          onSubmit={(evento) => {
-            evento.preventDefault();
-            publicar();
-          }}
-        >
-          <label htmlFor="nova-publicacao" className="text-sm font-bold text-slate-700">Partilhar com a comunidade</label>
-          <textarea
-            id="nova-publicacao"
-            value={publicacao}
-            onChange={(evento) => setPublicacao(evento.target.value)}
-            maxLength={1200}
-            rows={4}
-            placeholder="Escreve uma novidade, oportunidade ou conquista académica..."
-            className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 focus-visible:outline-brand-blue"
-          />
-
-          {anexoPublicacao && (
-            <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-              {eImagem(anexoPublicacao.url) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={anexoPublicacao.url}
-                  alt="Pré-visualização do anexo"
-                  className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue">
-                  <FileText className="h-7 w-7" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800">{anexoPublicacao.nome}</p>
-                <p className="text-xs text-slate-500">Anexo pronto para publicar</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAnexoPublicacao(null)}
-                className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                aria-label="Remover anexo"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">{publicacao.length}/1200 caracteres</span>
-              <span className="text-slate-300">|</span>
-              <input
-                ref={inputFicheiroRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip"
-                className="hidden"
-                onChange={(evento) => {
-                  const ficheiro = evento.target.files?.[0];
-                  if (ficheiro) anexarFicheiro(ficheiro);
-                }}
-              />
-              <button
-                type="button"
-                disabled={aCarregarAnexo || pendente}
-                onClick={() => inputFicheiroRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                title="Anexar imagem ou ficheiro"
-              >
-                {aCarregarAnexo ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ImagePlus className="h-3.5 w-3.5" />
-                )}
-                Anexar
-              </button>
-            </div>
-            <button
-              type="submit"
-              disabled={pendente || (!publicacao.trim() && !anexoPublicacao)}
-              className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {pendente ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Publicar
-            </button>
-          </div>
-        </form>
-      ) : (
+      {!usuarioAtual && (
         <div className="mt-5 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 text-sm text-slate-600">
           <p className="font-semibold text-slate-800">Pretende participar na conversa?</p>
           <Link href="/login" className="mt-2 inline-flex font-semibold text-brand-blue hover:underline">Inicie sessão para publicar, gostar e comentar.</Link>
@@ -446,27 +653,29 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
       )}
 
       <div className="mt-6 space-y-4">
-        {publicacoes.length === 0 ? (
+        {itens.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
             <h3 className="font-bold text-slate-800">Ainda não existem publicações</h3>
             <p className="mt-2 text-sm text-slate-500">A primeira partilha da comunidade aparecerá aqui.</p>
           </div>
         ) : (
-          publicacoes.map((item) => {
-            const gostou = Boolean(usuarioAtual && item.gostos.some((gosto) => gosto.idUsuario === usuarioAtual.id));
+          itens.map((item) => {
+            const gostou = Boolean(item.gostou);
             const comentariosVisiveis = comentariosAbertos[item.id];
             const eProprioAutor = usuarioAtual?.id === item.autor.id;
+            const podeModerar = Boolean(usuarioAtual?.papeis.includes("admin"));
             const aAcompanhar = seguindoEstado[item.autor.id] ?? item.autor.estaAAcompanhar ?? false;
+            const estaOculto = item.estado === "oculto";
 
             return (
-              <article key={item.id} className="rounded-2xl border border-slate-200 p-5">
+              <article key={item.id} className={`rounded-2xl border p-5 ${estaOculto ? "border-amber-200 bg-amber-50/40" : "border-slate-200"}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <Link href={`/perfil/${item.autor.id}`} className="shrink-0 transition hover:opacity-80">
                       <Avatar nome={item.autor.nome} foto={item.autor.fotoPerfil} />
                     </Link>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate font-bold text-slate-800">
                           <Link href={`/perfil/${item.autor.id}`} className="hover:text-brand-blue">
                             {item.autor.nome}
@@ -482,7 +691,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100"
                                 : "bg-brand-blue/10 text-brand-blue hover:bg-brand-blue hover:text-white"
                             } disabled:opacity-60`}
-                            title={aAcompanhar ? "A acompanhar (Clique para deixar de seguir)" : "Clique para Acompanhar e interagir no Chat"}
+                            title={aAcompanhar ? "A acompanhar (Clique para deixar de seguir)" : "Clique para Acompanhar"}
                           >
                             {aAcompanhar ? (
                               <>
@@ -495,19 +704,60 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
                             )}
                           </button>
                         )}
+                        {estaOculto && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <EyeOff className="h-3 w-3" /> Oculto
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-xs text-slate-500">{formatarData(item.dataPublicacao)}</p>
                     </div>
                   </div>
-                  {podeModerar && (
-                    <button
-                      type="button"
-                      disabled={pendente}
-                      onClick={() => ocultar(item.id)}
-                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-60"
-                    >
-                      <ShieldOff className="h-3.5 w-3.5" /> Ocultar
-                    </button>
+
+                  {usuarioAtual && (eProprioAutor || podeModerar) && (
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setMenuAberto((atual) => (atual === item.id ? null : item.id))}
+                        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="Opções da publicação"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                      {menuAberto === item.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} aria-hidden="true" />
+                          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                            {eProprioAutor && (
+                              <button
+                                type="button"
+                                onClick={() => iniciarEdicaoPublicacao(item)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                              >
+                                <Pencil className="h-4 w-4" /> Editar
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => alternarOcultoPublicacao(item)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            >
+                              {estaOculto ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                              {estaOculto ? "Mostrar" : "Ocultar"}
+                            </button>
+                            {(eProprioAutor || podeModerar) && (
+                              <button
+                                type="button"
+                                onClick={() => eliminarPublicacao(item.id)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-4 w-4" /> Eliminar
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -548,17 +798,27 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
                   </button>
                   <button
                     type="button"
-                    onClick={() => setComentariosAbertos((estadoActual) => ({ ...estadoActual, [item.id]: !comentariosVisiveis }))}
+                    onClick={() => setComentariosAbertos((estado) => ({ ...estado, [item.id]: !comentariosVisiveis }))}
                     className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
                   >
                     <MessageCircle className="h-4 w-4" /> {item._count.comentarios}
                   </button>
+                  {usuarioAtual && (item._count.gostos > 0 || item._count.comentarios > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => abrirInteracoes(item.id)}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+                      title="Ver quem curtiu e comentou"
+                    >
+                      <Users className="h-4 w-4" /> Quem interagiu
+                    </button>
+                  )}
                 </div>
 
                 {comentariosVisiveis && (
                   <div className="mt-4 space-y-3 rounded-2xl bg-slate-50 p-4">
                     {item.comentarios.map((comentario) => renderizarComentario(comentario, item.id))}
-                    {item._count.comentarios > contarComentariosVisiveis(item.comentarios) && (
+                    {item._count.comentarios > contarComentarios(item.comentarios) && (
                       <p className="text-xs text-slate-500">Só são apresentados os comentários mais recentes.</p>
                     )}
                     {item.comentarios.length === 0 && <p className="text-sm text-slate-500">Ainda não existem comentários.</p>}
@@ -575,7 +835,7 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
                         <input
                           id={`comentario-${item.id}`}
                           value={comentarios[item.id] || ""}
-                          onChange={(evento) => setComentarios((estadoActual) => ({ ...estadoActual, [item.id]: evento.target.value }))}
+                          onChange={(evento) => setComentarios((estado) => ({ ...estado, [item.id]: evento.target.value }))}
                           maxLength={500}
                           placeholder="Escreve um comentário..."
                           className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus-visible:outline-brand-blue"
@@ -595,7 +855,297 @@ export function FeedComunidadeClient({ publicacoes, usuarioAtual, mostrarCompose
             );
           })
         )}
+
+        {cursor !== null && (
+          <div ref={sentinelRef} className="flex items-center justify-center py-4">
+            {aCarregarMais && (
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> A carregar mais...
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Modal: Nova publicação */}
+      {composerAberto && usuarioAtual && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="text-lg font-black text-slate-900">Criar nova publicação</h3>
+              <button
+                type="button"
+                onClick={() => setComposerAberto(false)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              className="space-y-4 p-5"
+              onSubmit={(evento) => {
+                evento.preventDefault();
+                publicar();
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <Avatar nome={usuarioAtual.nome} foto={usuarioAtual.fotoPerfil} />
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{usuarioAtual.nome}</p>
+                  <p className="text-xs text-slate-400">A partilhar com a comunidade</p>
+                </div>
+              </div>
+
+              <textarea
+                value={publicacao}
+                onChange={(evento) => setPublicacao(evento.target.value)}
+                maxLength={1200}
+                rows={5}
+                autoFocus
+                placeholder="Escreve uma novidade, oportunidade ou conquista académica..."
+                className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 focus-visible:outline-brand-blue"
+              />
+
+              {anexoPublicacao ? (
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {eImagem(anexoPublicacao.url) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={anexoPublicacao.url} alt="Pré-visualização" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue">
+                      <FileText className="h-7 w-7" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">{anexoPublicacao.nome}</p>
+                    <p className="text-xs text-slate-500">Imagem pronta para publicar</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAnexoPublicacao(null)}
+                    className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                    aria-label="Remover imagem"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputFicheiroRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(evento) => {
+                      const ficheiro = evento.target.files?.[0];
+                      if (ficheiro) carregarFicheiro(ficheiro, setAnexoPublicacao, setACarregarAnexo);
+                      if (inputFicheiroRef.current) inputFicheiroRef.current.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={aCarregarAnexo || pendente}
+                    onClick={() => inputFicheiroRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 disabled:opacity-60"
+                  >
+                    {aCarregarAnexo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                    Imagem (opcional)
+                  </button>
+                  <span className="text-xs text-slate-400">{publicacao.length}/1200</span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={pendente || aCarregarAnexo || (!publicacao.trim() && !anexoPublicacao)}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {pendente ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Publicar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar publicação */}
+      {editandoId !== null && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="text-lg font-black text-slate-900">Editar publicação</h3>
+              <button
+                type="button"
+                onClick={() => setEditandoId(null)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              className="space-y-4 p-5"
+              onSubmit={(evento) => {
+                evento.preventDefault();
+                guardarEdicaoPublicacao(editandoId);
+              }}
+            >
+              <textarea
+                value={editarConteudo}
+                onChange={(evento) => setEditarConteudo(evento.target.value)}
+                maxLength={1200}
+                rows={5}
+                className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 focus-visible:outline-brand-blue"
+              />
+
+              {editarAnexo ? (
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {eImagem(editarAnexo.url) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={editarAnexo.url} alt="Pré-visualização" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue">
+                      <FileText className="h-7 w-7" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">{editarAnexo.nome}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditarAnexo(null)}
+                    className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                    aria-label="Remover imagem"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputFicheiroEdicaoRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(evento) => {
+                      const ficheiro = evento.target.files?.[0];
+                      if (ficheiro) carregarFicheiro(ficheiro, setEditarAnexo, setACarregarAnexo);
+                      if (inputFicheiroEdicaoRef.current) inputFicheiroEdicaoRef.current.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={aCarregarAnexo || pendente}
+                    onClick={() => inputFicheiroEdicaoRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 disabled:opacity-60"
+                  >
+                    {aCarregarAnexo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                    Trocar imagem
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditandoId(null)}
+                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pendente || aCarregarAnexo || !editarConteudo.trim()}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-blue-dark disabled:opacity-60"
+                  >
+                    {pendente ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Interações */}
+      {interacoesAberta !== null && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="text-lg font-black text-slate-900">Interações</h3>
+              <button
+                type="button"
+                onClick={() => setInteracoesAberta(null)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto p-5">
+              {aCarregarInteracoes ? (
+                <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> A carregar...
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      <Heart className="h-3.5 w-3.5 text-rose-500" /> Gostos ({interacoes?.gostos.length ?? 0})
+                    </h4>
+                    <div className="mt-3 space-y-2">
+                      {interacoes && interacoes.gostos.length > 0 ? (
+                        interacoes.gostos.map((usuario) => (
+                          <Link
+                            key={`gosto-${usuario.id}`}
+                            href={`/perfil/${usuario.id}`}
+                            onClick={() => setInteracoesAberta(null)}
+                            className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-slate-50"
+                          >
+                            <Avatar nome={usuario.nome} foto={usuario.fotoPerfil} tamanho="sm" />
+                            <span className="text-sm font-semibold text-slate-700">{usuario.nome}</span>
+                          </Link>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-500">Ainda ninguém gostou.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      <MessageCircle className="h-3.5 w-3.5 text-brand-blue" /> Comentários ({interacoes?.comentarios.length ?? 0})
+                    </h4>
+                    <div className="mt-3 space-y-2">
+                      {interacoes && interacoes.comentarios.length > 0 ? (
+                        interacoes.comentarios.map((usuario) => (
+                          <Link
+                            key={`comentario-${usuario.id}`}
+                            href={`/perfil/${usuario.id}`}
+                            onClick={() => setInteracoesAberta(null)}
+                            className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-slate-50"
+                          >
+                            <Avatar nome={usuario.nome} foto={usuario.fotoPerfil} tamanho="sm" />
+                            <span className="text-sm font-semibold text-slate-700">{usuario.nome}</span>
+                          </Link>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-500">Ainda ninguém comentou.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

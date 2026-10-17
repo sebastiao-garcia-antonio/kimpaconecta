@@ -20,6 +20,12 @@ export class AuthRepository {
     });
   }
 
+  static async findUserByEmail(email: string) {
+    return prisma.usuario.findFirst({
+      where: { email: { equals: email.trim(), mode: "insensitive" } },
+    });
+  }
+
   static async findUserById(id: number) {
     return prisma.usuario.findUnique({
       where: { id },
@@ -149,6 +155,44 @@ export class AuthRepository {
       });
 
       return usuario;
+    });
+  }
+
+  static async invalidarRecuperacoesDoUsuario(idUsuario: number) {
+    return prisma.recuperacaoSenha.updateMany({
+      where: { idUsuario, utilizado: false },
+      data: { utilizado: true }
+    });
+  }
+
+  static async criarCodigoRecuperacao(idUsuario: number, token: string, expiraEm: Date) {
+    return prisma.recuperacaoSenha.create({
+      data: { idUsuario, token, expiraEm }
+    });
+  }
+
+  static async obterRecuperacaoPendente(idUsuario: number) {
+    return prisma.recuperacaoSenha.findFirst({
+      where: {
+        idUsuario,
+        utilizado: false,
+        expiraEm: { gt: new Date() }
+      },
+      orderBy: { dataPedido: "desc" }
+    });
+  }
+
+  static async marcarRecuperacaoUtilizada(idRecuperacao: bigint) {
+    return prisma.recuperacaoSenha.update({
+      where: { idRecuperacao },
+      data: { utilizado: true }
+    });
+  }
+
+  static async atualizarSenhaUsuario(idUsuario: number, senha: string) {
+    return prisma.usuario.update({
+      where: { id: idUsuario },
+      data: { senha }
     });
   }
 }

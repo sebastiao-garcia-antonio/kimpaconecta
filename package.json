@@ -11,6 +11,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "prisma:seed:users": "node prisma/seed-users.js",
+    "prisma:seed:feed": "node prisma/seed-feed.js",
+    "prisma:seed:messages": "node prisma/seed-messages.js",
+    "prisma:seed": "npm run prisma:seed:users && npm run prisma:seed:feed && npm run prisma:seed:messages",
     "generate-structure": "node generate-structure.js"
   },
   "dependencies": {

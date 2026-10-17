@@ -33,6 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <DashboardShell
       role={primaryRole}
+      userId={user.id}
       userName={userName}
       fotoPerfil={dadosUsuario?.fotoPerfil || ""}
       contextoAcademico={contextoAcademico as any}

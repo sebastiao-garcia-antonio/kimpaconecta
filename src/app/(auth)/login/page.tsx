@@ -63,7 +63,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = "/";
+      window.location.href = res?.destino || "/estudante";
     } catch {
       setError("Não foi possível iniciar sessão. Tente novamente.");
       setLoading(false);
@@ -183,6 +183,15 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </Field>
+
+                <div className="flex justify-end">
+                  <Link
+                    href="/reset-password"
+                    className="text-xs font-semibold text-brand-blue hover:underline"
+                  >
+                    Esqueceu-se da senha?
+                  </Link>
+                </div>
 
                 <button
                   type="submit"

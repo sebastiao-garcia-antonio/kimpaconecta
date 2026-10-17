@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { AcademicRepository } from "@/features/academic/repositories/academic.repository";
 import ProfessorDashboardClient from "@/features/academic/components/professor-dashboard-client";
 import { PaginaSecao } from "@/components/pagina-seccao";
+import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
+import { obterFeedInicial } from "@/features/feed/obter-feed-inicial";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -26,6 +28,7 @@ export default async function DashboardPage() {
   const projects = await AcademicRepository.getShowcaseProjects(professorId);
   const opportunities = await AcademicRepository.getTeacherOpportunities(professorId);
   const notifications = await AcademicRepository.getTeacherNotifications(professorId);
+  const feed = await obterFeedInicial({ idUsuario: professorId, nome: professorNome, papeis: roles });
 
   const disciplinesMap: Record<number, any> = {};
   const studentsMap: Record<number, any> = {};
@@ -106,7 +109,13 @@ export default async function DashboardPage() {
         ]}
       />
 
-      <div className="px-6 lg:px-8 pb-8">
+      <div className="px-6 lg:px-8 pb-8 space-y-6">
+        <FeedComunidadeClient
+          publicacoes={feed.publicacoes}
+          proximoCursor={feed.proximoCursor}
+          usuarioAtual={feed.usuarioAtual}
+        />
+
         <ProfessorDashboardClient
           initialData={initialData}
           professorId={professorId}

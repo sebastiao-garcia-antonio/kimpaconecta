@@ -4,6 +4,8 @@ import Link from "next/link";
 import { AcademicRepository } from "@/features/academic/repositories/academic.repository";
 import { NotificationsRepository } from "@/features/notifications/repositories/notifications.repository";
 import { PaginaSecao } from "@/components/pagina-seccao";
+import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
+import { obterFeedInicial } from "@/features/feed/obter-feed-inicial";
 import { interpretarFiltroAnoAcademico, normalizarFiltroAnoAcademico, rotuloFiltroAnoAcademico } from "@/features/academic/utils/filtro-ano-academico";
 
 type PageProps = {
@@ -33,6 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const historico = await AcademicRepository.obterHistoricoAcademicoDoEstudante(idEstudante);
   const oportunidades = await AcademicRepository.obterOportunidadesParaEstudante(idEstudante);
   const notificacoes = await NotificationsRepository.listarNotificacoesDoUsuario(idEstudante);
+  const feed = await obterFeedInicial({ idUsuario: idEstudante, nome: sessao.user.name, papeis });
 
   const disciplinas = filtroAno === "historico"
     ? disciplinasTodas
@@ -78,6 +81,12 @@ const totalDisciplinas = disciplinas.length;
       />
 
       <div className="px-6 lg:px-8 pb-8 space-y-6">
+        <FeedComunidadeClient
+          publicacoes={feed.publicacoes}
+          proximoCursor={feed.proximoCursor}
+          usuarioAtual={feed.usuarioAtual}
+        />
+
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
           {filtroAno === "historico"
             ? "A visualizar o histórico de todos os anos disponíveis para o teu perfil."
