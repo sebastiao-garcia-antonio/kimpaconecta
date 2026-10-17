@@ -2,29 +2,63 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decode } from "next-auth/jwt";
 
+const DEFAULT_AUTH_SECRET = "f63c87e834bd31b6727289b4f9d45e73ef9b12bb1de29b93abde65fa1a2b1660";
+
+function obterSegredosPossiveis(): string[] {
+  const segredos: string[] = [];
+  const s1 = process.env.AUTH_SECRET;
+  const s2 = process.env.NEXTAUTH_SECRET;
+
+  if (s1 && !s1.includes("http") && s1.trim().length >= 16) {
+    segredos.push(s1.trim());
+  }
+  if (s2 && !s2.includes("http") && s2.trim().length >= 16 && !segredos.includes(s2.trim())) {
+    segredos.push(s2.trim());
+  }
+  if (!segredos.includes(DEFAULT_AUTH_SECRET)) {
+    segredos.push(DEFAULT_AUTH_SECRET);
+  }
+  return segredos;
+}
+
 async function descodificarSessao(
   rawToken: string,
   isSecure: boolean
 ): Promise<{ roles: string[] } | null> {
-  const secret =
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "f63c87e834bd31b6727289b4f9d45e73ef9b12bb1de29b93abde65fa1a2b1660";
+  const segredos = obterSegredosPossiveis();
 
+  // Testar todas as combinações de salt do NextAuth / Auth.js
   const salts = isSecure
-    ? ["__Secure-authjs.session-token", "__Secure-next-auth.session-token"]
-    : ["authjs.session-token", "next-auth.session-token"];
+    ? [
+        "__Secure-authjs.session-token",
+        "authjs.session-token",
+        "__Secure-next-auth.session-token",
+        "next-auth.session-token",
+        ""
+      ]
+    : [
+        "authjs.session-token",
+        "__Secure-authjs.session-token",
+        "next-auth.session-token",
+        "__Secure-next-auth.session-token",
+        ""
+      ];
 
-  for (const salt of salts) {
-    try {
-      const decoded = await decode({ token: rawToken, secret, salt });
-      if (decoded) {
-        return {
-          roles: Array.isArray(decoded.roles) ? (decoded.roles as string[]) : [],
-        };
+  for (const secret of segredos) {
+    for (const salt of salts) {
+      try {
+        const decoded = await decode({ token: rawToken, secret, salt });
+        if (decoded) {
+          const roles = Array.isArray(decoded.roles)
+            ? (decoded.roles as string[])
+            : (decoded as any).role
+            ? [String((decoded as any).role)]
+            : [];
+          return { roles };
+        }
+      } catch {
+        // Tenta a próxima combinação
       }
-    } catch {
-      // token inválido para este salt, tenta o próximo
     }
   }
   return null;
@@ -61,7 +95,8 @@ export async function middleware(req: NextRequest) {
 
   const isSecure =
     req.cookies.has("__Secure-authjs.session-token") ||
-    req.cookies.has("__Secure-next-auth.session-token");
+    req.cookies.has("__Secure-next-auth.session-token") ||
+    req.nextUrl.protocol === "https:";
 
   const rawToken =
     req.cookies.get("authjs.session-token")?.value ||

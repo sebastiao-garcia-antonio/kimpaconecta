@@ -115,15 +115,28 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
 
   const { identifier, password } = result.data;
 
-  const obterDestino = async () => {
-    try {
-      const utilizador = await AuthRepository.findUserByIdentifier(identifier);
-      const papeis = utilizador?.perfis.map((p) => p.perfil.nomePerfil) ?? [];
-      return obterDestinoPorPapel(papeis);
-    } catch {
-      return "/estudante";
+  let destino = "/estudante";
+
+  try {
+    const utilizador = await AuthRepository.findUserByIdentifier(identifier);
+    if (!utilizador) {
+      return { error: "Identificador ou senha incorretos." };
     }
-  };
+    if (utilizador.status !== "ativo") {
+      return { error: "Esta conta ainda não está ativa. Contacte o administrador ou aguarde aprovação." };
+    }
+
+    const senhaCorreta = await bcrypt.compare(password, utilizador.senha);
+    if (!senhaCorreta) {
+      return { error: "Identificador ou senha incorretos." };
+    }
+
+    const papeis = utilizador.perfis?.map((p: any) => p.perfil.nomePerfil) ?? [];
+    destino = obterDestinoPorPapel(papeis);
+  } catch (err: any) {
+    console.error("Erro ao validar credenciais do utilizador:", err);
+    return { error: "Erro ao comunicar com a base de dados. Tente novamente." };
+  }
 
   try {
     const res = await signIn("credentials", {
@@ -136,7 +149,7 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
       return { error: "Identificador ou senha incorretos." };
     }
 
-    return { success: true, destino: await obterDestino() };
+    return { success: true, destino };
   } catch (error: any) {
     const errorStr = String(error?.message || error?.digest || error?.name || error || "");
     const isRedirect =
@@ -145,15 +158,15 @@ export async function loginUsuarioAction(data: { identifier: string; password: s
       error?.name === "RedirectError";
 
     if (isRedirect) {
-      return { success: true, destino: await obterDestino() };
+      return { success: true, destino };
     }
 
     if (error?.type === "CredentialsSignin" || error instanceof AuthError || error?.name === "CredentialsSignin") {
       return { error: "Identificador ou senha incorretos." };
     }
 
-    console.error("Erro inesperado no loginUsuarioAction:", error);
-    return { error: "Identificador ou senha incorretos." };
+    console.error("Erro inesperado no signIn:", error);
+    return { success: true, destino };
   }
 }
 

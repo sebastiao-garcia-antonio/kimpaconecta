@@ -63,8 +63,18 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = res?.destino || "/estudante";
-    } catch {
+      const params = new URLSearchParams(window.location.search);
+      const callback = params.get("callbackUrl");
+      const destinoFinal = (callback && callback.startsWith("/") && !callback.startsWith("//"))
+        ? callback
+        : (res?.destino || "/estudante");
+
+      window.location.href = destinoFinal;
+    } catch (err: any) {
+      const errStr = String(err?.message || err || "");
+      if (errStr.includes("NEXT_REDIRECT")) {
+        return;
+      }
       setError("Não foi possível iniciar sessão. Tente novamente.");
       setLoading(false);
     }
