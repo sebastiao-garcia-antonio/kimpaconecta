@@ -1,35 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
 
-function sanitizarUrlBase(url: string | undefined): string | null {
-  if (!url) return null;
-  if (url.includes("kimpa_secret_key")) return null;
-  // Aceitar localhost mesmo sem ponto
-  if (url.includes("localhost") || url.includes("127.0.0.1")) {
-    return url.startsWith("http") ? url : `http://${url}`;
-  }
-  if (!url.includes(".")) return null;
-  return url.startsWith("http") ? url : `https://${url}`;
-}
-
-function obterUrlBase(): string {
-  const envNextAuth = sanitizarUrlBase(process.env.NEXTAUTH_URL);
-  if (envNextAuth) return envNextAuth;
-
-  const envAuth = sanitizarUrlBase(process.env.AUTH_URL);
-  if (envAuth) return envAuth;
-
-  const envVercel = sanitizarUrlBase(process.env.VERCEL_URL);
-  if (envVercel) return envVercel;
-
-  return "https://kimpaconecta.vercel.app";
-}
-
-const urlCorreta = obterUrlBase();
-if (typeof process !== "undefined" && process.env) {
-  process.env.NEXTAUTH_URL = urlCorreta;
-  process.env.AUTH_URL = urlCorreta;
-}
-
 export const authConfig: NextAuthConfig = {
   trustHost: true,
   secret:
