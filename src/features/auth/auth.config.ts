@@ -3,6 +3,10 @@ import type { NextAuthConfig } from "next-auth";
 function sanitizarUrlBase(url: string | undefined): string | null {
   if (!url) return null;
   if (url.includes("kimpa_secret_key")) return null;
+  // Aceitar localhost mesmo sem ponto
+  if (url.includes("localhost") || url.includes("127.0.0.1")) {
+    return url.startsWith("http") ? url : `http://${url}`;
+  }
   if (!url.includes(".")) return null;
   return url.startsWith("http") ? url : `https://${url}`;
 }
