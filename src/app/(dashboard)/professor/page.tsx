@@ -1,4 +1,4 @@
-﻿import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AcademicRepository } from "@/features/academic/repositories/academic.repository";
 import ProfessorDashboardClient from "@/features/academic/components/professor-dashboard-client";
@@ -14,30 +14,53 @@ export default async function DashboardPage() {
   }
 
   const roles = (session.user as any).roles || [];
-  if (!roles.includes("professor")) {
+  if (!roles.includes("professor") && !roles.includes("admin")) {
     redirect("/login");
   }
 
   const professorId = Number(session.user.id);
   const professorNome = session.user.name || "Professor";
 
-  const courses = await AcademicRepository.getTeacherCoursesAndDisciplines(professorId);
-  const evaluations = await AcademicRepository.getTeacherEvaluations(professorId);
-  const meetings = await AcademicRepository.getTeacherMeetings(professorId);
-  const reputation = await AcademicRepository.getTeacherReputacao(professorId);
-  const projects = await AcademicRepository.getShowcaseProjects(professorId);
-  const opportunities = await AcademicRepository.getTeacherOpportunities(professorId);
-  const notifications = await AcademicRepository.getTeacherNotifications(professorId);
-  const feed = await obterFeedInicial({ idUsuario: professorId, nome: professorNome, papeis: roles });
+  let courses: any[] = [];
+  let evaluations: any[] = [];
+  let meetings: any[] = [];
+  let reputation: any = null;
+  let projects: any[] = [];
+  let opportunities: any[] = [];
+  let notifications: any[] = [];
+  let feed: any = { publicacoes: [], proximoCursor: null, usuarioAtual: null };
+
+  try {
+    const [cRes, eRes, mRes, rRes, pRes, oRes, nRes, fRes] = await Promise.all([
+      AcademicRepository.getTeacherCoursesAndDisciplines(professorId).catch(() => []),
+      AcademicRepository.getTeacherEvaluations(professorId).catch(() => []),
+      AcademicRepository.getTeacherMeetings(professorId).catch(() => []),
+      AcademicRepository.getTeacherReputacao(professorId).catch(() => null),
+      AcademicRepository.getShowcaseProjects(professorId).catch(() => []),
+      AcademicRepository.getTeacherOpportunities(professorId).catch(() => []),
+      AcademicRepository.getTeacherNotifications(professorId).catch(() => []),
+      obterFeedInicial({ idUsuario: professorId, nome: professorNome, papeis: roles }).catch(() => ({ publicacoes: [], proximoCursor: null, usuarioAtual: null }))
+    ]);
+    courses = cRes || [];
+    evaluations = eRes || [];
+    meetings = mRes || [];
+    reputation = rRes;
+    projects = pRes || [];
+    opportunities = oRes || [];
+    notifications = nRes || [];
+    feed = fRes || { publicacoes: [], proximoCursor: null, usuarioAtual: null };
+  } catch (error) {
+    console.error("Erro ao carregar dados do professor:", error);
+  }
 
   const disciplinesMap: Record<number, any> = {};
   const studentsMap: Record<number, any> = {};
 
   for (const uc of (courses as any[])) {
-    const curso = uc.curso;
+    const curso = uc?.curso;
     if (!curso) continue;
 
-    for (const disc of curso.disciplinas) {
+    for (const disc of (curso.disciplinas || [])) {
       disciplinesMap[disc.id] = {
         ...disc,
         cursoNome: curso.nomeCurso,
@@ -45,8 +68,8 @@ export default async function DashboardPage() {
       };
     }
 
-    for (const turma of curso.turmas) {
-      for (const mat of turma.matriculas) {
+    for (const turma of (curso.turmas || [])) {
+      for (const mat of (turma.matriculas || [])) {
         const student = mat.usuario;
         if (!student) continue;
 
@@ -65,11 +88,11 @@ export default async function DashboardPage() {
 
   const cursoAlunosMap: Record<number, number> = {};
   for (const uc of (courses as any[])) {
-    const curso = uc.curso;
+    const curso = uc?.curso;
     if (!curso) continue;
     let total = 0;
-    for (const turma of curso.turmas) {
-      total += turma.matriculas.length;
+    for (const turma of (curso.turmas || [])) {
+      total += (turma.matriculas || []).length;
     }
     cursoAlunosMap[curso.id] = total;
   }
@@ -78,16 +101,18 @@ export default async function DashboardPage() {
     disc.alunosCount = cursoAlunosMap[disc.idCurso] || 0;
   }
 
-  const initialData = {
-    disciplines,
-    students,
-    evaluations,
-    meetings,
-    reputation,
-    projects,
-    opportunities,
-    notifications
-  };
+  const initialData = JSON.parse(
+    JSON.stringify({
+      disciplines,
+      students,
+      evaluations,
+      meetings,
+      reputation,
+      projects,
+      opportunities,
+      notifications
+    })
+  );
 
   return (
     <div className="space-y-8">

@@ -234,8 +234,8 @@ export async function obterDadosDashboardCoordenador() {
     return {
       id: curso.id,
       nomeCurso: curso.nomeCurso,
-      nomeUo: curso.unidade.nomeUo,
-      siglaUo: curso.unidade.sigla,
+      nomeUo: curso.unidade?.nomeUo || "Unidade Kimpa Vita",
+      siglaUo: curso.unidade?.sigla || "",
       coordenador: curso.coordenador?.nome || null,
       totalEstudantes,
       totalTurmas: curso.turmas.length,
@@ -308,8 +308,8 @@ export async function obterDadosDashboardCoordenador() {
       email: solicitacao.email,
       numEstudante: solicitacao.numEstudante,
       status: solicitacao.status,
-      nomeCurso: solicitacao.curso.nomeCurso,
-      nomeUo: solicitacao.curso.unidade.nomeUo,
+      nomeCurso: solicitacao.curso?.nomeCurso || "Sem curso",
+      nomeUo: solicitacao.curso?.unidade?.nomeUo || "Unidade Kimpa Vita",
       nomeTurma: solicitacao.turma?.nomeTurma || null,
       dataSolicitacao: solicitacao.dataSolicitacao,
     })),
@@ -317,7 +317,7 @@ export async function obterDadosDashboardCoordenador() {
       id: solicitacao.id,
       nomeCompleto: solicitacao.nomeCompleto,
       status: solicitacao.status,
-      nomeCurso: solicitacao.curso.nomeCurso,
+      nomeCurso: solicitacao.curso?.nomeCurso || "Sem curso",
       dataSolicitacao: solicitacao.dataSolicitacao,
     })),
     projetos: projetos.slice(0, 6).map((projeto) => ({
@@ -326,8 +326,8 @@ export async function obterDadosDashboardCoordenador() {
       disciplina: projeto.disciplina?.nomeDisciplina || "Sem disciplina",
       professor: projeto.professor?.nome || "Sem professor",
       autorizado: Boolean(projeto.idProfessorAutorizador),
-      gostos: projeto._count.curtidores,
-      autores: projeto.autores.map((autor) => autor.usuario.nome),
+      gostos: projeto._count?.curtidores || 0,
+      autores: (projeto.autores || []).map((autor) => autor.usuario?.nome || "Participante"),
     })),
   };
 }

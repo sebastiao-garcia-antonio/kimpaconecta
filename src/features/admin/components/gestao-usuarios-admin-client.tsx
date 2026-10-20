@@ -214,16 +214,9 @@ export function GestaoUsuariosAdminClient({ usuarios }: GestaoUsuariosAdminClien
                   </td>
                   <td className="px-4 py-4 text-slate-500">{usuario.email}</td>
                   <td className="px-4 py-4">
-                    <select
-                      value={papelAtual}
-                      disabled={pendente && idEmAcao === usuario.id}
-                      onChange={(e) => alterarPapel(usuario.id, e.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 focus:outline-brand-blue"
-                    >
-                      {PERFIS.map((perfil) => (
-                        <option key={perfil} value={perfil}>{perfil}</option>
-                      ))}
-                    </select>
+                    <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 capitalize">
+                      {papelAtual}
+                    </span>
                   </td>
                   <td className="px-4 py-4">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${usuario.status === "ativo" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>

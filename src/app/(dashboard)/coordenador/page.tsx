@@ -47,11 +47,41 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const dados = await obterDadosDashboardCoordenador();
-  const feed = await obterFeedInicial({ idUsuario: Number(session.user.id), nome: session.user.name, papeis: roles });
+  const defaultDados: any = {
+    administrador: roles.includes("admin"),
+    metricas: {
+      totalCursos: 0,
+      totalEstudantes: 0,
+      totalDisciplinas: 0,
+      totalTurmas: 0,
+      totalPendentes: 0,
+      totalProjetos: 0,
+      taxaAprovacaoGlobal: 0,
+      presencasMedias: 0,
+    },
+    cursos: [],
+    solicitacoesPendentes: [],
+    solicitacoesRecentes: [],
+    projetos: [],
+  };
+
+  let dados: any = defaultDados;
+  try {
+    const res = await obterDadosDashboardCoordenador();
+    if (res) dados = { ...defaultDados, ...res, metricas: { ...defaultDados.metricas, ...(res.metricas || {}) } };
+  } catch (error) {
+    console.error("Erro ao obter dados do coordenador:", error);
+  }
+
+  let feed: any = { publicacoes: [], proximoCursor: null, usuarioAtual: null };
+  try {
+    feed = await obterFeedInicial({ idUsuario: Number(session.user.id), nome: session.user.name, papeis: roles });
+  } catch (error) {
+    console.error("Erro ao obter feed:", error);
+  }
 
   const aprovadas = dados.metricas.totalCursos > 0
-    ? Math.round((dados.solicitacoesRecentes.filter((item) => item.status === "aprovado").length / Math.max(dados.solicitacoesRecentes.length, 1)) * 100)
+    ? Math.round(((dados.solicitacoesRecentes || []).filter((item: any) => item.status === "aprovado").length / Math.max((dados.solicitacoesRecentes || []).length, 1)) * 100)
     : 0;
 
   const metricasSemestre = [
@@ -72,7 +102,7 @@ export default async function DashboardPage() {
           { titulo: "Turmas", valor: String(dados.metricas.totalTurmas), observacao: "Em funcionamento" },
           { titulo: "Aprovações", valor: String(dados.metricas.totalPendentes), observacao: "Pendentes" },
         ]}
-        resumos={dados.cursos.slice(0, 3).map((curso) => ({
+        resumos={(dados.cursos || []).slice(0, 3).map((curso: any) => ({
           titulo: curso.nomeCurso,
           descricao: `${curso.totalDisciplinas} disciplina(s) · ${curso.totalTurmas} turma(s) · ${curso.totalEstudantes} estudante(s)`,
           estado: curso.coordenador ? "Coordenado" : "Sem coordenador",
@@ -102,7 +132,7 @@ export default async function DashboardPage() {
               <div className="p-2 bg-brand-blue/10 rounded-xl"><Building className="h-4 w-4 text-brand-blue" /></div>
             </div>
             <div className="mt-3"><span className="text-3xl font-extrabold text-slate-800">{dados.metricas.totalCursos}</span><span className="text-xs text-slate-400 ml-2">ativos</span></div>
-            <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold"><CheckCircle className="h-3 w-3" /><span>{dados.cursos.filter((curso) => curso.coordenador).length} com coordenador</span></div>
+            <div className="mt-2 flex items-center gap-1 text-emerald-600 text-xs font-semibold"><CheckCircle className="h-3 w-3" /><span>{(dados.cursos || []).filter((curso: any) => curso.coordenador).length} com coordenador</span></div>
           </div>
 
           <div className="group p-5 bg-white border border-slate-200 rounded-2xl hover:border-brand-green/30 hover:shadow-md transition-all duration-300">
@@ -139,13 +169,13 @@ export default async function DashboardPage() {
               <h3 className="font-bold text-lg text-slate-800">Cursos supervisionados</h3>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ano atual</span>
             </div>
-            {dados.cursos.length === 0 ? (
+            {(dados.cursos || []).length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                 Ainda não existem cursos associados à tua coordenação.
               </p>
             ) : (
               <div className="space-y-3">
-                {dados.cursos.map((curso) => (
+                {(dados.cursos || []).map((curso: any) => (
                   <Link
                     key={curso.id}
                     href="/coordenador/cursos"
@@ -170,7 +200,7 @@ export default async function DashboardPage() {
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-bold text-lg text-slate-800 mb-5">Métricas do semestre</h3>
             <div className="space-y-4">
-              {metricasSemestre.map((m) => (
+              {metricasSemestre.map((m: any) => (
                 <div key={m.label}>
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-xs font-semibold text-slate-600">{m.label}</span>
@@ -203,13 +233,13 @@ export default async function DashboardPage() {
                 {dados.metricas.totalPendentes} pendentes
               </Link>
             </div>
-            {dados.solicitacoesPendentes.length === 0 ? (
+            {(dados.solicitacoesPendentes || []).length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                 Nenhuma solicitação pendente. Tudo sob controlo.
               </p>
             ) : (
               <div className="space-y-3">
-                {dados.solicitacoesPendentes.map((item) => (
+                {(dados.solicitacoesPendentes || []).map((item: any) => (
                   <Link
                     key={item.id}
                     href="/coordenador/solicitacoes"
@@ -236,13 +266,13 @@ export default async function DashboardPage() {
                 Ver tudo
               </Link>
             </div>
-            {dados.projetos.length === 0 ? (
+            {(dados.projetos || []).length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
                 Nenhum projeto submetido ainda.
               </p>
             ) : (
               <div className="space-y-3">
-                {dados.projetos.map((projeto) => (
+                {(dados.projetos || []).map((projeto: any) => (
                   <Link
                     key={projeto.id}
                     href="/coordenador/projetos"

@@ -72,7 +72,7 @@ export function GestaoProjetosAdminClient({ projetos }: GestaoProjetosAdminClien
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projetos.map((projeto) => {
             const autorizado = mapaEstado[projeto.id];
-            const nomesAutores = projeto.autores?.map((autor) => autor.usuario.nome).join(", ") || "Autor não identificado";
+            const nomesAutores = projeto.autores?.map((autor) => autor.usuario?.nome).filter(Boolean).join(", ") || "Autor não identificado";
             return (
               <div key={projeto.id} className="rounded-2xl border border-slate-200 p-5">
                 <div className="flex items-start justify-between gap-3">

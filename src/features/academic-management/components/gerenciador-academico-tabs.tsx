@@ -628,20 +628,7 @@ export function GerenciadorAcademicoTabs({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Sigla Oficial *
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={20}
-                  value={formUoSigla}
-                  onChange={(e) => setFormUoSigla(e.target.value)}
-                  placeholder="Ex: FE, ISCED, FCSA"
-                  className="w-full uppercase rounded-2xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-brand-blue focus:outline-none"
-                />
-              </div>
+
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">

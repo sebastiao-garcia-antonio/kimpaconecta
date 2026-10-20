@@ -225,17 +225,34 @@ export async function guardarUnidadeOrganicaServer(idUnidade: unknown, dados: Da
 
   const idExistente = idUnidade ? identificar(idUnidade) : null;
   const validacaoNome = validarTextoSeguro(dados.nomeUo, "O nome da unidade", { obrigatorio: true, maxLength: 150 });
-  const validacaoSigla = validarTextoSeguro(dados.sigla, "A sigla", { obrigatorio: true, maxLength: 20 });
-  const localizacaoStr = dados.localizacao ? String(dados.localizacao).trim() : null;
-
   if (!validacaoNome.ok) return { error: validacaoNome.erro };
-  if (!validacaoSigla.ok) return { error: validacaoSigla.erro };
+
+  let siglaFinal = "";
+  if (dados.sigla && String(dados.sigla).trim()) {
+    const validacaoSigla = validarTextoSeguro(dados.sigla, "A sigla", { obrigatorio: true, maxLength: 20 });
+    if (!validacaoSigla.ok) return { error: validacaoSigla.erro };
+    siglaFinal = validacaoSigla.valor.toUpperCase();
+  } else if (idExistente) {
+    const atual = await prisma.unidadeOrganica.findUnique({ where: { id: idExistente }, select: { sigla: true } });
+    siglaFinal = atual?.sigla || "";
+  }
+
+  if (!siglaFinal) {
+    const stopWords = new Set(["de", "do", "da", "dos", "das", "e", "em", "para"]);
+    const partes = validacaoNome.valor
+      .trim()
+      .split(/\s+/)
+      .filter((p) => !stopWords.has(p.toLowerCase()));
+    siglaFinal = (partes.length === 1 ? partes[0].substring(0, 4) : partes.map((p) => p[0]).join("")).substring(0, 10).toUpperCase();
+  }
+
+  const localizacaoStr = dados.localizacao ? String(dados.localizacao).trim() : null;
 
   const repetida = await prisma.unidadeOrganica.findFirst({
     where: {
       OR: [
-        { nomeUo: { equals: validacaoNome.valor, mode: "insensitive" } },
-        { sigla: { equals: validacaoSigla.valor, mode: "insensitive" } },
+        { nomeUo: { equals: validacaoNome.valor, mode: "insensitive" as const } },
+        ...(siglaFinal ? [{ sigla: { equals: siglaFinal, mode: "insensitive" as const } }] : []),
       ],
       ...(idExistente ? { id: { not: idExistente } } : {}),
     },
@@ -243,10 +260,12 @@ export async function guardarUnidadeOrganicaServer(idUnidade: unknown, dados: Da
   });
 
   if (repetida) {
-    if (repetida.sigla.toLowerCase() === validacaoSigla.valor.toLowerCase()) {
-      return { error: `Já existe uma unidade com a sigla "${validacaoSigla.valor.toUpperCase()}".` };
+    if (siglaFinal && repetida.sigla.toLowerCase() === siglaFinal.toLowerCase() && repetida.id !== idExistente) {
+      // Se a sigla gerada colidir, adiciona um sufixo
+      siglaFinal = `${siglaFinal.substring(0, 8)}_${Math.floor(Math.random() * 90 + 10)}`;
+    } else if (repetida.nomeUo.toLowerCase() === validacaoNome.valor.toLowerCase()) {
+      return { error: "Já existe uma unidade académica com este nome." };
     }
-    return { error: "Já existe uma unidade académica com este nome." };
   }
 
   try {
@@ -255,7 +274,7 @@ export async function guardarUnidadeOrganicaServer(idUnidade: unknown, dados: Da
         where: { id: idExistente },
         data: {
           nomeUo: validacaoNome.valor,
-          sigla: validacaoSigla.valor.toUpperCase(),
+          sigla: siglaFinal,
           localizacao: localizacaoStr || null,
         },
       });
@@ -263,7 +282,7 @@ export async function guardarUnidadeOrganicaServer(idUnidade: unknown, dados: Da
       await prisma.unidadeOrganica.create({
         data: {
           nomeUo: validacaoNome.valor,
-          sigla: validacaoSigla.valor.toUpperCase(),
+          sigla: siglaFinal,
           localizacao: localizacaoStr || null,
         },
       });

@@ -11,7 +11,13 @@ export default async function ProjetosAdminPage() {
   const papeis = (sessao.user as any).roles || [];
   if (!papeis.includes("admin")) redirect("/login");
 
-  const projetos = await obterProjetosVitrineAdmin();
+  let projetos: any[] = [];
+  try {
+    projetos = await obterProjetosVitrineAdmin();
+  } catch (error) {
+    console.error("Erro ao obter projetos vitrine:", error);
+    projetos = [];
+  }
   const autorizados = projetos.filter((projeto: any) => Boolean(projeto.idProfessorAutorizador)).length;
   const pendentes = projetos.filter((projeto: any) => !projeto.idProfessorAutorizador).length;
 
@@ -48,7 +54,7 @@ export default async function ProjetosAdminPage() {
               idProfessorAutorizador: projeto.idProfessorAutorizador,
               disciplina: projeto.disciplina ? { nomeDisciplina: projeto.disciplina.nomeDisciplina } : null,
               professor: projeto.professor ? { nome: projeto.professor.nome } : null,
-              autores: projeto.autores?.map((autor: any) => ({ usuario: { nome: autor.usuario.nome } })),
+              autores: (projeto.autores || []).map((autor: any) => ({ usuario: { nome: autor.usuario?.nome || "Participante" } })),
             }))}
           />
         </div>
