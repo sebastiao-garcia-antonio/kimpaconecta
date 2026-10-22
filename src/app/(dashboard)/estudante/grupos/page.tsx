@@ -15,6 +15,13 @@ export default async function EstudanteGruposPage() {
     redirect("/login");
   }
 
+  // Verificar se o estudante é mentor
+  const matriculaMentor = await prisma.matricula.findFirst({
+    where: { idUsuario, isMentor: true },
+    select: { id: true },
+  }).catch(() => null);
+  const ehMentor = Boolean(matriculaMentor);
+
   // Buscar grupos em que o estudante é membro ou criador
   const gruposBrutos = await prisma.grupo.findMany({
     where: {
@@ -92,6 +99,7 @@ export default async function EstudanteGruposPage() {
             papeis,
           }}
           mentoresDisponiveis={mentores}
+          podeCrearGrupo={ehMentor}
         />
       </div>
     </div>

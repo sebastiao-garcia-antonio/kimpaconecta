@@ -83,34 +83,56 @@ function validarUrlAnexo(urlAnexo?: string) {
 }
 
 export async function criarPublicacaoServer(conteudo: unknown, urlAnexo?: unknown) {
-  const usuario = await obterUsuarioAutenticado();
-  if (!usuario) return { erro: "Inicie sessão para publicar na comunidade." };
+  try {
+    const usuario = await obterUsuarioAutenticado();
+    if (!usuario) return { erro: "Inicie sessão para publicar na comunidade." };
 
-  if (usuario.papeis.includes("admin")) {
-    return { erro: "Administradores não têm permissão para publicar no Feed da comunidade." };
+    // Bloquear apenas se for puramente admin (sem papéis de coordenador, professor ou estudante)
+    const ehApenasAdmin =
+      usuario.papeis.includes("admin") &&
+      !usuario.papeis.some((p) => ["coordenador", "professor", "estudante"].includes(p));
+
+    if (ehApenasAdmin) {
+      return { erro: "Administradores não têm permissão para publicar no Feed da comunidade." };
+    }
+
+    const texto = typeof conteudo === "string" ? conteudo.trim() : "";
+    const anexo = typeof urlAnexo === "string" ? urlAnexo.trim() : "";
+
+    if (!texto && !anexo) {
+      return { erro: "Introduza uma mensagem ou selecione uma imagem para publicar." };
+    }
+
+    let conteudoFinal = texto;
+    if (texto) {
+      const validacao = validarTextoSeguro(texto, "A publicação", { obrigatorio: false, maxLength: 1200 });
+      if (!validacao.ok) return { erro: validacao.erro };
+      conteudoFinal = validacao.valor;
+    }
+
+    const validaAnexo = validarUrlAnexo(anexo);
+    if (validaAnexo) return { erro: validaAnexo };
+
+    const criada = await prisma.publicacao.create({
+      data: {
+        idAutor: usuario.idUsuario,
+        conteudo: conteudoFinal,
+        urlImagem: anexo || null,
+        estado: "publicado",
+      },
+      include: {
+        autor: { select: { id: true, nome: true, fotoPerfil: true } },
+        gostos: { where: { idUsuario: usuario.idUsuario }, select: { idUsuario: true } },
+        _count: { select: { gostos: true, comentarios: true } },
+      },
+    });
+
+    revalidarFeedENotificacoes();
+    return { sucesso: true, publicacao: serializarPublicacao(criada) };
+  } catch (error: any) {
+    console.error("[CRIAR_PUBLICACAO_ERROR]", error);
+    return { erro: "Não foi possível guardar a publicação. Tente novamente." };
   }
-
-  const validacao = validarTextoSeguro(conteudo, "A publicação", { obrigatorio: true, maxLength: 1200 });
-  if (!validacao.ok) return { erro: validacao.erro };
-
-  const anexo = typeof urlAnexo === "string" ? urlAnexo.trim() : "";
-  const validaAnexo = validarUrlAnexo(anexo);
-  if (validaAnexo) return { erro: validaAnexo };
-
-  const criada = await prisma.publicacao.create({
-    data: {
-      idAutor: usuario.idUsuario,
-      conteudo: validacao.valor,
-      urlImagem: anexo || null,
-    },
-    include: {
-      autor: { select: { id: true, nome: true, fotoPerfil: true } },
-      gostos: { where: { idUsuario: usuario.idUsuario }, select: { idUsuario: true } },
-      _count: { select: { gostos: true, comentarios: true } },
-    },
-  });
-  revalidarFeedENotificacoes();
-  return { sucesso: true, publicacao: serializarPublicacao(criada) };
 }
 
 export async function carregarPublicacoesFeedServer(cursorId?: unknown) {

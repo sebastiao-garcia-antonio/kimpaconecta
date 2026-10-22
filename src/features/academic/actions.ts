@@ -364,6 +364,22 @@ export async function criarGrupoServer(data: {
   idCriador: number;
 }) {
   try {
+    // Verificar se o criador é estudante — se for, deve ser mentor para criar grupo
+    const { prisma } = await import("@/lib/prisma");
+    const { auth } = await import("@/lib/auth");
+    const sessao = await auth();
+    const papeis = (sessao?.user as { roles?: string[] } | undefined)?.roles || [];
+
+    if (papeis.includes("estudante") && !papeis.includes("professor") && !papeis.includes("coordenador") && !papeis.includes("admin")) {
+      const isMentor = await prisma.matricula.findFirst({
+        where: { idUsuario: data.idCriador, isMentor: true },
+        select: { id: true },
+      });
+      if (!isMentor) {
+        return { error: "Apenas estudantes mentores têm permissão para criar grupos de estudo." };
+      }
+    }
+
     const validacaoTexto = validarVariosTextosSeguros([
       { nome: "nomeGrupo", valor: data.nomeGrupo, obrigatorio: true, maxLength: 120 },
       { nome: "tipoGrupo", valor: data.tipoGrupo, obrigatorio: true, maxLength: 60 }
@@ -375,12 +391,14 @@ export async function criarGrupoServer(data: {
 
     const created = await AcademicRepository.createGroup(data);
     revalidatePath("/professor");
+    revalidatePath("/estudante/grupos");
     return { success: true, data: created };
   } catch (error: any) {
     console.error("Error in criarGrupoServer:", error);
     return { error: "Erro ao criar grupo de trabalho: " + error.message };
   }
 }
+
 
 export async function adicionarMembroGrupoServer(idGrupo: number, idUsuario: number, funcao: string) {
   try {

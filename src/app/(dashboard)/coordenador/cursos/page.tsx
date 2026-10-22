@@ -33,7 +33,14 @@ export default async function PaginaCursosCoordenador({ searchParams }: Propried
   const unidadeSelecionada = String(parametros.unidade || "");
 
   const cursos = await prisma.curso.findMany({
-    where: administrador ? {} : { idCoordenador },
+    where: administrador
+      ? {}
+      : {
+          OR: [
+            { idCoordenador },
+            { usuarios: { some: { idUsuario: idCoordenador } } },
+          ],
+        },
     include: {
       unidade: true,
       coordenador: {

@@ -21,7 +21,14 @@ export default async function PaginaProfessoresCoordenador() {
 
   // Cursos sob a coordenação do utilizador (ou todos se for admin)
   const cursos = await prisma.curso.findMany({
-    where: ehAdmin ? {} : { idCoordenador },
+    where: ehAdmin
+      ? {}
+      : {
+          OR: [
+            { idCoordenador },
+            { usuarios: { some: { idUsuario: idCoordenador } } },
+          ],
+        },
     select: { id: true, nomeCurso: true },
     orderBy: { nomeCurso: "asc" },
   });

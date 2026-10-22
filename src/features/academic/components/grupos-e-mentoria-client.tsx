@@ -35,9 +35,10 @@ interface GruposEMentoriaClientProps {
     email: string;
     numEstudante?: string | null;
   }>;
+  podeCrearGrupo?: boolean;
 }
 
-export function GruposEMentoriaClient({ grupos, usuarioAtual, mentoresDisponiveis = [] }: GruposEMentoriaClientProps) {
+export function GruposEMentoriaClient({ grupos, usuarioAtual, mentoresDisponiveis = [], podeCrearGrupo = true }: GruposEMentoriaClientProps) {
   const router = useRouter();
   const [modalAberto, setModalAberto] = useState(false);
   const [nomeGrupo, setNomeGrupo] = useState("");
@@ -118,13 +119,19 @@ export function GruposEMentoriaClient({ grupos, usuarioAtual, mentoresDisponivei
             Colabore com a sua turma, interaja na disciplina e receba acompanhamento de mentores dedicados.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalAberto(true)}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-brand-blue-dark"
-        >
-          <Plus className="h-4 w-4" /> Criar Novo Grupo / Mentoria
-        </button>
+        {podeCrearGrupo ? (
+          <button
+            type="button"
+            onClick={() => setModalAberto(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-brand-blue-dark"
+          >
+            <Plus className="h-4 w-4" /> Criar Novo Grupo / Mentoria
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-700">
+            <Shield className="h-4 w-4" /> Apenas mentores podem criar grupos
+          </div>
+        )}
       </div>
 
       {/* Lista de Grupos */}

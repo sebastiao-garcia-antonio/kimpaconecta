@@ -908,6 +908,11 @@ export function FeedComunidadeClient({
                 </div>
               </div>
 
+              {/* Erro inline no modal */}
+              {erro && composerAberto && (
+                <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{erro}</p>
+              )}
+
               <textarea
                 value={publicacao}
                 onChange={(evento) => setPublicacao(evento.target.value)}
