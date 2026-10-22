@@ -20,7 +20,11 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRight,
+  PanelRightClose,
+  PanelRightOpen,
   ShieldAlert,
   ShieldCheck,
   Users,
@@ -220,6 +224,9 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
     });
   };
 
+  const [menuEsquerdoDesktop, setMenuEsquerdoDesktop] = useState(true);
+  const [menuDireitoDesktop, setMenuDireitoDesktop] = useState(true);
+
   const avatarUsuario = fotoPerfil ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -234,7 +241,7 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
   );
 
   const cabecalhoLateral = (
-    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
+    <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-5">
       <Link href="/" className="flex items-center gap-3" onClick={() => setMenuMovel(null)} title="Voltar ao início">
         <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={36} height={36} className="rounded-xl object-cover shadow-sm" priority />
         <div>
@@ -244,16 +251,36 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
           </span>
         </div>
       </Link>
+      <button
+        type="button"
+        onClick={() => setMenuEsquerdoDesktop(false)}
+        className="hidden rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:block"
+        title="Esconder menu lateral"
+        aria-label="Esconder menu lateral"
+      >
+        <PanelLeftClose className="h-5 w-5" />
+      </button>
     </div>
   );
 
   const cabecalhoDireita = (
-    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6">
-      {avatarUsuario}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
-        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
+    <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5">
+      <div className="flex min-w-0 items-center gap-3">
+        {avatarUsuario}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-slate-700">{userName}</p>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{rotulosPapel[role]}</span>
+        </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setMenuDireitoDesktop(false)}
+        className="hidden rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:block"
+        title="Esconder painel lateral"
+        aria-label="Esconder painel lateral"
+      >
+        <PanelRightClose className="h-5 w-5" />
+      </button>
     </div>
   );
 
@@ -289,7 +316,7 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
         Saltar para o conteúdo principal
       </a>
 
-      <aside className="z-30 hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
+      <aside className={`z-30 hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm ${menuEsquerdoDesktop ? "lg:flex" : "lg:hidden"}`}>
         {cabecalhoLateral}
         <nav aria-label="Navegação lateral esquerda" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
           {renderizarItensNavegacao(itensEsquerda)}
@@ -309,6 +336,17 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
           >
             <Menu className="h-5 w-5" />
           </button>
+
+          <button
+            type="button"
+            onClick={() => setMenuEsquerdoDesktop((v) => !v)}
+            className="hidden rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 hover:text-brand-blue lg:flex"
+            title={menuEsquerdoDesktop ? "Esconder menu esquerdo" : "Abrir menu esquerdo"}
+            aria-label={menuEsquerdoDesktop ? "Esconder menu esquerdo" : "Abrir menu esquerdo"}
+          >
+            {menuEsquerdoDesktop ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+          </button>
+
           <Link href="/" className="flex items-center gap-2 lg:hidden" title="Voltar ao início">
             <Image src="/logo-oficial.jpeg" alt="Logo Universidade Kimpa Vita" width={28} height={28} className="rounded-lg object-cover" priority />
             <span className="text-sm font-bold text-slate-700">Kimpa Connect</span>
@@ -336,6 +374,16 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
 
             <button
               type="button"
+              onClick={() => setMenuDireitoDesktop((v) => !v)}
+              className="hidden rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 hover:text-brand-blue lg:flex"
+              title={menuDireitoDesktop ? "Esconder painel direito" : "Abrir painel direito"}
+              aria-label={menuDireitoDesktop ? "Esconder painel direito" : "Abrir painel direito"}
+            >
+              {menuDireitoDesktop ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setMenuMovel("direita")}
               className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue lg:hidden"
               aria-label="Abrir menu direito"
@@ -360,7 +408,7 @@ export function DashboardShell({ role, userId, userName, fotoPerfil, contextoAca
         </main>
       </div>
 
-      <aside className="z-30 hidden w-60 shrink-0 flex-col border-l border-slate-200 bg-white shadow-sm lg:flex">
+      <aside className={`z-30 hidden w-60 shrink-0 flex-col border-l border-slate-200 bg-white shadow-sm ${menuDireitoDesktop ? "lg:flex" : "lg:hidden"}`}>
         {cabecalhoDireita}
         <nav aria-label="Navegação lateral direita" className="scrollbar-thin flex-1 space-y-1 overflow-y-auto p-4">
           {renderizarItensNavegacao(itensDireita)}

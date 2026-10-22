@@ -8,7 +8,7 @@ import { validarTextoSeguro } from "@/lib/validacao-texto";
 const periodosPermitidos = ["Manhã", "Tarde", "Pós-laboral"];
 
 type DadosCurso = { idUo: unknown; nomeCurso: unknown; idCoordenador?: unknown };
-type DadosDisciplina = { idCurso: unknown; nomeDisciplina: unknown; semestre: unknown };
+type DadosDisciplina = { idCurso: unknown; nomeDisciplina: unknown; semestre: unknown; idDocente?: unknown };
 type DadosTurma = { idCurso: unknown; nomeTurma: unknown; anoCurricular: unknown; periodo: unknown };
 
 async function obterUtilizadorAutorizado() {
@@ -111,6 +111,8 @@ export async function guardarDisciplinaServer(idDisciplina: unknown, dados: Dado
   const idExistente = idDisciplina ? identificar(idDisciplina) : null;
   const validacaoNome = validarTextoSeguro(dados.nomeDisciplina, "O nome da disciplina", { obrigatorio: true, maxLength: 150 });
   const semestre = validarNumero(dados.semestre, "O semestre", 1, 20);
+  const idDocente = dados.idDocente ? identificar(dados.idDocente) : null;
+
   if (!idCurso) return { error: "Selecione um curso válido." };
   if (!validacaoNome.ok) return { error: validacaoNome.erro };
   if (semestre.erro) return { error: semestre.erro };
@@ -123,8 +125,28 @@ export async function guardarDisciplinaServer(idDisciplina: unknown, dados: Dado
   if (repetida) return { error: "Já existe uma disciplina com este nome neste curso." };
 
   try {
-    if (idExistente) await prisma.disciplina.update({ where: { id: idExistente }, data: { idCurso, nomeDisciplina: validacaoNome.valor, semestre: semestre.valor! } });
-    else await prisma.disciplina.create({ data: { idCurso, nomeDisciplina: validacaoNome.valor, semestre: semestre.valor! } });
+    if (idDocente) {
+      const vinculo = await prisma.usuarioCurso.findFirst({
+        where: { idUsuario: idDocente, idCurso },
+        select: { idUsuario: true },
+      });
+      if (!vinculo) {
+        await prisma.usuarioCurso.create({
+          data: { idUsuario: idDocente, idCurso, dataVinculo: new Date() },
+        });
+      }
+    }
+
+    if (idExistente) {
+      await prisma.disciplina.update({
+        where: { id: idExistente },
+        data: { idCurso, nomeDisciplina: validacaoNome.valor, semestre: semestre.valor!, idDocente } as any,
+      });
+    } else {
+      await prisma.disciplina.create({
+        data: { idCurso, nomeDisciplina: validacaoNome.valor, semestre: semestre.valor!, idDocente } as any,
+      });
+    }
     revalidarEstrutura();
     return { success: true };
   } catch {

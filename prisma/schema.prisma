@@ -60,6 +60,7 @@ model Usuario {
   gostosComentarios  GostoComentarioPublicacao[]
   seguidores         SeguidorUsuario[] @relation("SeguidoRelacao")
   seguindo           SeguidorUsuario[] @relation("SeguidorRelacao")
+  disciplinasLecionadas Disciplina[]   @relation("DocenteDisciplina")
 
   @@map("usuario")
 }
@@ -129,7 +130,10 @@ model Disciplina {
   nomeDisciplina String               @map("nome_disciplina") @db.VarChar(150)
   semestre       Int
   
+  idDocente      Int?                 @map("id_docente")
+
   curso          Curso                @relation(fields: [idCurso], references: [id], onDelete: Cascade)
+  docente        Usuario?             @relation("DocenteDisciplina", fields: [idDocente], references: [id], onDelete: SetNull)
   grupos         Grupo[]
   avaliacoes     Avaliacao[]
   projetos       ProjetoVitrine[]

@@ -32,6 +32,12 @@ export type DisciplinaCoordenadorData = {
   idCurso: number;
   nomeDisciplina: string;
   semestre: number;
+  idDocente?: number | null;
+  docente?: {
+    id: number;
+    nome: string;
+    email: string;
+  } | null;
   curso: {
     id: number;
     nomeCurso: string;
@@ -42,9 +48,16 @@ export type DisciplinaCoordenadorData = {
   };
 };
 
+export type DocenteSimples = {
+  id: number;
+  nome: string;
+  email: string;
+};
+
 interface GerenciadorDisciplinasCoordenadorProps {
   cursos: CursoSimples[];
   disciplinas: DisciplinaCoordenadorData[];
+  professores?: DocenteSimples[];
 }
 
 const SEMESTRES = Array.from({ length: 12 }, (_, i) => ({
@@ -55,6 +68,7 @@ const SEMESTRES = Array.from({ length: 12 }, (_, i) => ({
 export function GerenciadorDisciplinasCoordenador({
   cursos,
   disciplinas,
+  professores = [],
 }: GerenciadorDisciplinasCoordenadorProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -88,6 +102,7 @@ export function GerenciadorDisciplinasCoordenador({
   const [formIdCurso, setFormIdCurso] = useState("");
   const [formNomeDisciplina, setFormNomeDisciplina] = useState("");
   const [formSemestre, setFormSemestre] = useState("1");
+  const [formIdDocente, setFormIdDocente] = useState("");
 
   // Handlers para abrir modais
   const abrirModalCriar = () => {
@@ -95,6 +110,7 @@ export function GerenciadorDisciplinasCoordenador({
     setFormIdCurso(idPadrao);
     setFormNomeDisciplina("");
     setFormSemestre("1");
+    setFormIdDocente("");
     setModalDisciplina({ aberto: true, modo: "criar" });
   };
 
@@ -102,6 +118,7 @@ export function GerenciadorDisciplinasCoordenador({
     setFormIdCurso(String(d.idCurso));
     setFormNomeDisciplina(d.nomeDisciplina);
     setFormSemestre(String(d.semestre));
+    setFormIdDocente(d.idDocente ? String(d.idDocente) : "");
     setModalDisciplina({ aberto: true, modo: "editar", dados: d });
   };
 
@@ -114,6 +131,7 @@ export function GerenciadorDisciplinasCoordenador({
         idCurso: formIdCurso,
         nomeDisciplina: formNomeDisciplina,
         semestre: formSemestre,
+        idDocente: formIdDocente ? Number(formIdDocente) : null,
       });
 
       if (res.success) {
@@ -298,6 +316,7 @@ export function GerenciadorDisciplinasCoordenador({
                   <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="pb-3 pl-2">Nome da Disciplina</th>
                     <th className="pb-3">Curso</th>
+                    <th className="pb-3">Docente Responsável</th>
                     <th className="pb-3">Semestre Curricular</th>
                     <th className="pb-3 text-right pr-2">Ações</th>
                   </tr>
@@ -318,6 +337,20 @@ export function GerenciadorDisciplinasCoordenador({
                           <GraduationCap className="h-4 w-4 text-slate-400 shrink-0" />
                           <span>{d.curso.nomeCurso}</span>
                         </div>
+                      </td>
+                      <td className="py-4 text-slate-600">
+                        {d.docente ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+                              {d.docente.nome.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-semibold text-slate-800 text-xs">{d.docente.nome}</span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+                            Não atribuído
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 text-slate-600">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">

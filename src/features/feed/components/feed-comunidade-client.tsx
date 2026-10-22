@@ -208,11 +208,13 @@ export function FeedComunidadeClient({
     const elemento = sentinelRef.current;
     if (!elemento || cursor === null) return;
 
+    const container = typeof document !== "undefined" ? document.getElementById("conteudo-principal") : null;
+
     const observer = new IntersectionObserver(
       (entradas) => {
         if (entradas[0]?.isIntersecting) carregarMais();
       },
-      { rootMargin: "300px" }
+      { root: container, rootMargin: "400px" }
     );
     observer.observe(elemento);
     return () => observer.disconnect();
@@ -803,7 +805,7 @@ export function FeedComunidadeClient({
                   >
                     <MessageCircle className="h-4 w-4" /> {item._count.comentarios}
                   </button>
-                  {usuarioAtual && (item._count.gostos > 0 || item._count.comentarios > 0) && (
+                  {eProprioAutor && (item._count.gostos > 0 || item._count.comentarios > 0) && (
                     <button
                       type="button"
                       onClick={() => abrirInteracoes(item.id)}
@@ -857,11 +859,19 @@ export function FeedComunidadeClient({
         )}
 
         {cursor !== null && (
-          <div ref={sentinelRef} className="flex items-center justify-center py-4">
-            {aCarregarMais && (
+          <div ref={sentinelRef} className="flex flex-col items-center justify-center py-6 gap-2">
+            {aCarregarMais ? (
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> A carregar mais...
+                <Loader2 className="h-4 w-4 animate-spin text-brand-blue" /> A carregar mais publicações...
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={carregarMais}
+                className="rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-brand-blue"
+              >
+                Carregar mais publicações
+              </button>
             )}
           </div>
         )}

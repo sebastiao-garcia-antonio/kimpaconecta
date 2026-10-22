@@ -38,6 +38,24 @@ export default async function PaginaDisciplinasCoordenador() {
 
   const idsCursos = cursos.map((c) => c.id);
 
+  // Professores disponíveis (do curso ou de todos os cursos)
+  const professores = await prisma.usuario.findMany({
+    where: {
+      perfis: {
+        some: {
+          perfil: { nomePerfil: "professor" },
+        },
+      },
+      status: "ativo",
+    },
+    select: {
+      id: true,
+      nome: true,
+      email: true,
+    },
+    orderBy: { nome: "asc" },
+  });
+
   // Disciplinas associadas aos cursos do coordenador
   const disciplinas = await prisma.disciplina.findMany({
     where: administrador
@@ -50,6 +68,13 @@ export default async function PaginaDisciplinasCoordenador() {
         select: {
           id: true,
           nomeCurso: true,
+        },
+      },
+      docente: {
+        select: {
+          id: true,
+          nome: true,
+          email: true,
         },
       },
       _count: {
@@ -79,9 +104,9 @@ export default async function PaginaDisciplinasCoordenador() {
           { titulo: "Semestres", valor: String(semestresDistintos.size), observacao: "Cobertura" },
           { titulo: "Média/Semestre", valor: semestresDistintos.size > 0 ? (disciplinas.length / semestresDistintos.size).toFixed(1) : "0", observacao: "Disciplinas" },
         ]}
-        resumos={disciplinas.slice(0, 3).map((disciplina) => ({
+        resumos={disciplinas.slice(0, 3).map((disciplina: any) => ({
           titulo: `${disciplina.nomeDisciplina} · ${disciplina.curso.nomeCurso}`,
-          descricao: `Semestre ${disciplina.semestre} · ${disciplina._count?.avaliacoes || 0} avaliação(ões) · ${disciplina._count?.materiais || 0} material(is)`,
+          descricao: `Semestre ${disciplina.semestre}${disciplina.docente ? ` · Prof. ${disciplina.docente.nome}` : " · Sem docente"} · ${disciplina._count?.avaliacoes || 0} avaliação(ões)`,
           estado: "Activa",
         }))}
       />
@@ -89,7 +114,8 @@ export default async function PaginaDisciplinasCoordenador() {
       <div className="px-6 pb-8 lg:px-8">
         <GerenciadorDisciplinasCoordenador
           cursos={cursos}
-          disciplinas={disciplinas}
+          disciplinas={disciplinas as any}
+          professores={professores}
         />
       </div>
     </div>
