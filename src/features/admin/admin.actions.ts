@@ -341,12 +341,164 @@ export async function obterUtilizadores() {
     include: {
       perfis: {
         include: { perfil: true }
+      },
+      coordenandoCursos: {
+        select: {
+          id: true,
+          nomeCurso: true
+        }
       }
     }
   });
 }
 
-// 3. Criar utilizador manualmente (Fluxo Admin)
+// 2.1 Obter cursos disponíveis para coordenação (somente cursos sem coordenador ou do próprio utilizador)
+export async function obterCursosDisponiveisCoordenacao(idUsuarioAtual?: number) {
+  await verificarAdmin();
+
+  const condicao = idUsuarioAtual
+    ? {
+        OR: [
+          { idCoordenador: null },
+          { idCoordenador: idUsuarioAtual }
+        ]
+      }
+    : { idCoordenador: null };
+
+  const cursos = await prisma.curso.findMany({
+    where: condicao,
+    select: {
+      id: true,
+      nomeCurso: true,
+      idCoordenador: true,
+      unidade: {
+        select: {
+          nomeUo: true,
+          sigla: true
+        }
+      }
+    },
+    orderBy: { nomeCurso: "asc" }
+  });
+
+  return cursos.map((c) => ({
+    id: c.id,
+    nomeCurso: c.nomeCurso,
+    idCoordenador: c.idCoordenador,
+    unidadeSigla: c.unidade?.sigla || "",
+    unidadeNome: c.unidade?.nomeUo || ""
+  }));
+}
+
+// 3. Criar coordenador com curso atribuído (Novo Utilizador exclusivo para Coordenador)
+export async function criarCoordenadorManual(data: {
+  nome: string;
+  email: string;
+  senhaProvisoria: string;
+  idCurso: number;
+}) {
+  const adminUser = await verificarAdmin();
+
+  try {
+    const validacaoTexto = validarVariosTextosSeguros([
+      { nome: "nome", valor: data.nome, obrigatorio: true, maxLength: 120 },
+      { nome: "email", valor: data.email, obrigatorio: true, maxLength: 120 },
+      { nome: "senhaProvisoria", valor: data.senhaProvisoria, obrigatorio: true, maxLength: 100 }
+    ]);
+
+    if (!validacaoTexto.ok) {
+      return { error: validacaoTexto.erro };
+    }
+
+    if (data.senhaProvisoria.trim().length < 6) {
+      return { error: "A senha provisória deve conter no mínimo 6 caracteres." };
+    }
+
+    if (!data.idCurso) {
+      return { error: "É obrigatório selecionar um curso para o novo coordenador." };
+    }
+
+    const emailNormalizado = data.email.trim().toLowerCase();
+    const emailExistente = await prisma.usuario.findUnique({
+      where: { email: emailNormalizado }
+    });
+    if (emailExistente) {
+      return { error: "Já existe uma conta cadastrada com este e-mail." };
+    }
+
+    // Verificar se o curso existe e se já possui coordenador
+    const curso = await prisma.curso.findUnique({
+      where: { id: data.idCurso }
+    });
+    if (!curso) {
+      return { error: "O curso selecionado não foi encontrado." };
+    }
+    if (curso.idCoordenador) {
+      return { error: "Este curso já possui um coordenador associado. Cada curso deve ter somente um coordenador." };
+    }
+
+    await AuthRepository_inicializarPerfis();
+
+    const perfilCoordenador = await prisma.perfil.findUnique({
+      where: { nomePerfil: "coordenador" }
+    });
+    if (!perfilCoordenador) {
+      return { error: "Perfil 'coordenador' não cadastrado no sistema." };
+    }
+
+    const hashed = await bcrypt.hash(data.senhaProvisoria.trim(), 10);
+
+    const novoUsuario = await prisma.$transaction(async (tx) => {
+      const u = await tx.usuario.create({
+        data: {
+          nome: data.nome.trim(),
+          email: emailNormalizado,
+          senha: hashed,
+          status: "ativo"
+        }
+      });
+
+      await tx.usuarioPerfil.create({
+        data: {
+          idUsuario: u.id,
+          idPerfil: perfilCoordenador.id
+        }
+      });
+
+      await tx.curso.update({
+        where: { id: data.idCurso },
+        data: { idCoordenador: u.id }
+      });
+
+      await tx.usuarioCurso.create({
+        data: {
+          idUsuario: u.id,
+          idCurso: data.idCurso,
+          dataVinculo: new Date()
+        }
+      });
+
+      return u;
+    });
+
+    await registrarAuditoria(
+      Number(adminUser.id),
+      "Criação Coordenador",
+      "usuario",
+      novoUsuario.id,
+      `Criado coordenador ${novoUsuario.nome} associado ao curso ${curso.nomeCurso} (ID ${data.idCurso})`
+    );
+
+    revalidatePath("/admin/usuarios");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao cadastrar coordenador:", error);
+    return { error: "Erro ao cadastrar coordenador. Verifique os dados e tente novamente." };
+  }
+}
+
+// 3.1 Criar utilizador genérico (mantido para compatibilidade)
 export async function criarUtilizadorManual(data: {
   nome: string;
   email: string;
@@ -432,7 +584,141 @@ async function AuthRepository_inicializarPerfis() {
   }
 }
 
-// 4. Alterar papel (role) de um utilizador
+// 4. Editar utilizador
+export async function editarUtilizador(data: {
+  idUsuario: number;
+  nome: string;
+  email: string;
+  perfilNome: string;
+  idCurso?: number | null;
+}) {
+  const adminUser = await verificarAdmin();
+
+  try {
+    const validacaoTexto = validarVariosTextosSeguros([
+      { nome: "nome", valor: data.nome, obrigatorio: true, maxLength: 120 },
+      { nome: "email", valor: data.email, obrigatorio: true, maxLength: 120 }
+    ]);
+
+    if (!validacaoTexto.ok) {
+      return { error: validacaoTexto.erro };
+    }
+
+    const emailNormalizado = data.email.trim().toLowerCase();
+    const emailExistente = await prisma.usuario.findFirst({
+      where: {
+        email: emailNormalizado,
+        id: { not: data.idUsuario }
+      }
+    });
+    if (emailExistente) {
+      return { error: "Este e-mail já está a ser utilizado por outro utilizador." };
+    }
+
+    await AuthRepository_inicializarPerfis();
+
+    const perfil = await prisma.perfil.findUnique({
+      where: { nomePerfil: data.perfilNome }
+    });
+    if (!perfil) {
+      return { error: `Perfil '${data.perfilNome}' não encontrado.` };
+    }
+
+    // Se o perfil for coordenador e fornecido idCurso
+    if (data.perfilNome === "coordenador" && data.idCurso) {
+      const curso = await prisma.curso.findUnique({
+        where: { id: data.idCurso }
+      });
+      if (!curso) {
+        return { error: "O curso selecionado não existe." };
+      }
+      if (curso.idCoordenador && curso.idCoordenador !== data.idUsuario) {
+        return { error: "Este curso já possui outro coordenador associado. Cada curso deve ter somente um coordenador." };
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Atualizar dados cadastrais
+      await tx.usuario.update({
+        where: { id: data.idUsuario },
+        data: {
+          nome: data.nome.trim(),
+          email: emailNormalizado
+        }
+      });
+
+      // Atualizar perfil
+      await tx.usuarioPerfil.deleteMany({
+        where: { idUsuario: data.idUsuario }
+      });
+      await tx.usuarioPerfil.create({
+        data: {
+          idUsuario: data.idUsuario,
+          idPerfil: perfil.id
+        }
+      });
+
+      if (data.perfilNome === "coordenador") {
+        // Remover de cursos que já coordenava se for atribuir um novo curso diferente
+        await tx.curso.updateMany({
+          where: {
+            idCoordenador: data.idUsuario,
+            ...(data.idCurso ? { id: { not: data.idCurso } } : {})
+          },
+          data: { idCoordenador: null }
+        });
+
+        if (data.idCurso) {
+          await tx.curso.update({
+            where: { id: data.idCurso },
+            data: { idCoordenador: data.idUsuario }
+          });
+
+          const vinculoExiste = await tx.usuarioCurso.findUnique({
+            where: {
+              idUsuario_idCurso: {
+                idUsuario: data.idUsuario,
+                idCurso: data.idCurso
+              }
+            }
+          });
+          if (!vinculoExiste) {
+            await tx.usuarioCurso.create({
+              data: {
+                idUsuario: data.idUsuario,
+                idCurso: data.idCurso,
+                dataVinculo: new Date()
+              }
+            });
+          }
+        }
+      } else {
+        // Se já não é coordenador, liberar quaisquer cursos que coordenava
+        await tx.curso.updateMany({
+          where: { idCoordenador: data.idUsuario },
+          data: { idCoordenador: null }
+        });
+      }
+    });
+
+    await registrarAuditoria(
+      Number(adminUser.id),
+      "Edição Utilizador",
+      "usuario",
+      data.idUsuario,
+      `Atualizados dados do utilizador ${data.nome} com perfil ${data.perfilNome}`
+    );
+
+    revalidatePath("/admin/usuarios");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao editar utilizador:", error);
+    return { error: "Erro ao atualizar dados do utilizador." };
+  }
+}
+
+// 4.1 Alterar papel (role) de um utilizador
 export async function alterarPapelUtilizador(idUsuario: number, perfilNomeNovo: string) {
   const adminUser = await verificarAdmin();
 
@@ -479,7 +765,17 @@ export async function alterarPapelUtilizador(idUsuario: number, perfilNomeNovo: 
 export async function excluirUtilizador(idUsuario: number) {
   const adminUser = await verificarAdmin();
 
+  if (Number(adminUser.id) === idUsuario) {
+    return { error: "O administrador com sessão iniciada não se pode eliminar a si próprio." };
+  }
+
   try {
+    // Desassociar cursos coordenados antes de excluir
+    await prisma.curso.updateMany({
+      where: { idCoordenador: idUsuario },
+      data: { idCoordenador: null }
+    });
+
     const usuario = await prisma.usuario.delete({
       where: { id: idUsuario }
     });
@@ -492,16 +788,22 @@ export async function excluirUtilizador(idUsuario: number) {
       `Eliminado utilizador da base de dados: ${usuario.nome}`
     );
 
+    revalidatePath("/admin/usuarios");
     revalidatePath("/admin");
     return { success: true };
-  } catch (error) {
-    return { error: "Erro ao eliminar utilizador." };
+  } catch (error: any) {
+    console.error("Erro ao eliminar utilizador:", error);
+    return { error: "Não foi possível eliminar o utilizador. Verifique se existem registos ou dados vinculados." };
   }
 }
 
 // 6. Alterar estado de suspensão do utilizador
 export async function alterarEstadoUtilizador(idUsuario: number, novoEstado: string) {
   const adminUser = await verificarAdmin();
+
+  if (Number(adminUser.id) === idUsuario) {
+    return { error: "O administrador com sessão iniciada não pode desativar a sua própria conta." };
+  }
 
   try {
     const usuario = await prisma.usuario.update({
@@ -517,6 +819,7 @@ export async function alterarEstadoUtilizador(idUsuario: number, novoEstado: str
       `Estado do utilizador ${usuario.nome} atualizado para '${novoEstado}'`
     );
 
+    revalidatePath("/admin/usuarios");
     revalidatePath("/admin");
     return { success: true };
   } catch (error) {

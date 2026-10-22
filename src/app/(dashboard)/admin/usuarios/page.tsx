@@ -1,7 +1,7 @@
-﻿import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PaginaSecao } from "@/components/pagina-seccao";
-import { obterUtilizadores } from "@/features/admin/admin.actions";
+import { obterUtilizadores, obterCursosDisponiveisCoordenacao } from "@/features/admin/admin.actions";
 import { GestaoUsuariosAdminClient } from "@/features/admin/components/gestao-usuarios-admin-client";
 
 export default async function UsuariosAdminPage() {
@@ -11,7 +11,12 @@ export default async function UsuariosAdminPage() {
   const papeis = (sessao.user as any).roles || [];
   if (!papeis.includes("admin")) redirect("/login");
 
-  const usuarios = await obterUtilizadores();
+  const idAdminLogado = Number(sessao.user.id);
+  const [usuarios, cursosDisponiveis] = await Promise.all([
+    obterUtilizadores(),
+    obterCursosDisponiveisCoordenacao(),
+  ]);
+
   const totalAtivos = usuarios.filter((usuario: any) => usuario.status === "ativo").length;
   const totalBloqueados = usuarios.filter((usuario: any) => usuario.status !== "ativo").length;
   const totalEstudantes = usuarios.filter((usuario: any) => usuario.perfis.some((perfil: any) => perfil.perfil.nomePerfil === "estudante")).length;
@@ -41,7 +46,15 @@ export default async function UsuariosAdminPage() {
               status: usuario.status,
               numEstudanteLogin: usuario.numEstudanteLogin,
               perfis: usuario.perfis.map((perfil: any) => ({ perfil: { nomePerfil: perfil.perfil.nomePerfil } })),
+              cursoCoordenado: usuario.coordenandoCursos?.[0]
+                ? {
+                    id: usuario.coordenandoCursos[0].id,
+                    nomeCurso: usuario.coordenandoCursos[0].nomeCurso,
+                  }
+                : null,
             }))}
+            idUsuarioLogado={idAdminLogado}
+            cursosDisponiveis={cursosDisponiveis}
           />
         </div>
       </div>
