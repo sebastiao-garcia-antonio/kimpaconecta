@@ -121,9 +121,9 @@ export async function obterDadosDashboardCompleto() {
         tipoEvento: log.tipoEvento,
         descricao: log.descricao,
         dataRegisto: log.dataRegisto,
-        estudanteNome: log.tentativa.estudante.nome,
-        estudanteEmail: log.tentativa.estudante.email,
-        provaTitulo: log.tentativa.avaliacao.titulo,
+        estudanteNome: log.tentativa?.estudante?.nome || "Estudante",
+        estudanteEmail: log.tentativa?.estudante?.email || "",
+        provaTitulo: log.tentativa?.avaliacao?.titulo || "Avaliação",
         idTentativa: log.idTentativa
       })),
       logsAuditoriaRecentes: logsAuditoriaRecentes.map(log => ({

@@ -4,8 +4,6 @@ import { auth } from "@/lib/auth";
 import { PaginaSecao } from "@/components/pagina-seccao";
 import { obterDadosDashboardCompleto } from "@/features/admin/admin.actions";
 import { AnalyticsRepository } from "@/features/analytics/repositories/analytics.repository";
-import { FeedComunidadeClient } from "@/features/feed/components/feed-comunidade-client";
-import { obterFeedInicial } from "@/features/feed/obter-feed-inicial";
 import {
   Activity,
   ArrowRight,
@@ -76,7 +74,6 @@ export default async function AdminPage() {
     obterDadosDashboardCompleto(),
     AnalyticsRepository.obterResumoAcademico(),
   ]);
-  const feed = await obterFeedInicial({ idUsuario: Number(session.user.id), nome: session.user.name, papeis: roles });
 
   const indicadores = [
     {
@@ -135,13 +132,6 @@ export default async function AdminPage() {
       />
 
       <div className="px-6 lg:px-8 space-y-6">
-        <FeedComunidadeClient
-          publicacoes={feed.publicacoes}
-          proximoCursor={feed.proximoCursor}
-          usuarioAtual={feed.usuarioAtual}
-          mostrarComposer={false}
-        />
-
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
           {indicadores.map((indicador) => {
             const Icone = indicador.icone;
