@@ -139,6 +139,7 @@ export default async function AdminPage() {
           publicacoes={feed.publicacoes}
           proximoCursor={feed.proximoCursor}
           usuarioAtual={feed.usuarioAtual}
+          mostrarComposer={false}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">

@@ -50,7 +50,7 @@ const navegacaoPorPapel: Record<string, MenuPorPapel> = {
     esquerda: [
       { label: "Painel geral", href: "/admin", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
       { label: "Gestão de utilizadores", href: "/admin/usuarios", icon: <Users className="h-4 w-4" />, section: "Gestão" },
-      { label: "Triagem de acessos", href: "/admin/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
+
       { label: "Estrutura académica", href: "/admin/academico", icon: <BookOpen className="h-4 w-4" />, section: "Académico" },
       { label: "Competências", href: "/admin/competencias", icon: <Award className="h-4 w-4" /> },
       { label: "Vitrine de projetos", href: "/admin/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
@@ -66,8 +66,8 @@ const navegacaoPorPapel: Record<string, MenuPorPapel> = {
     esquerda: [
       { label: "Visão geral", href: "/professor", icon: <BarChart2 className="h-4 w-4" />, section: "Painel geral" },
       { label: "Disciplinas e presenças", href: "/professor/classes", icon: <BookOpen className="h-4 w-4" />, section: "Aulas e diários" },
-      { label: "Avaliações e indicadores", href: "/professor/exams", icon: <FileText className="h-4 w-4" /> },
-      { label: "Grupos de trabalho", href: "/professor/groups", icon: <Users className="h-4 w-4" /> },
+      { label: "Avaliações e Quiz", href: "/professor/exams", icon: <FileText className="h-4 w-4" /> },
+      { label: "Grupos por disciplina", href: "/professor/groups", icon: <Users className="h-4 w-4" /> },
       { label: "Vitrine de projetos", href: "/professor/projects", icon: <Award className="h-4 w-4" />, section: "Projetos" },
     ],
     direita: [
@@ -98,14 +98,16 @@ const navegacaoPorPapel: Record<string, MenuPorPapel> = {
     esquerda: [
       { label: "Painel", href: "/coordenador", icon: <LayoutDashboard className="h-4 w-4" />, section: "Principal" },
       { label: "Cursos", href: "/coordenador/cursos", icon: <Building className="h-4 w-4" />, section: "Gestão académica" },
-      { label: "Solicitações", href: "/coordenador/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
-      { label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
-      { label: "Turmas", href: "/coordenador/turmas", icon: <Users className="h-4 w-4" /> },
+      { label: "Solicitações de acesso", href: "/coordenador/solicitacoes", icon: <ShieldCheck className="h-4 w-4" /> },
       { label: "Estudantes", href: "/coordenador/estudantes", icon: <GraduationCap className="h-4 w-4" /> },
-      { label: "Relatórios", href: "/coordenador/relatorios", icon: <BarChart2 className="h-4 w-4" />, section: "Indicadores" },
-      { label: "Projetos", href: "/coordenador/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
+      { label: "Professores do curso", href: "/coordenador/professores", icon: <Users className="h-4 w-4" /> },
+      { label: "Disciplinas", href: "/coordenador/disciplinas", icon: <BookOpen className="h-4 w-4" /> },
+      { label: "Turmas", href: "/coordenador/turmas", icon: <Building className="h-4 w-4" /> },
+      { label: "Grupos do curso", href: "/coordenador/grupos", icon: <CheckCircle2 className="h-4 w-4" /> },
     ],
     direita: [
+      { label: "Relatórios", href: "/coordenador/relatorios", icon: <BarChart2 className="h-4 w-4" />, section: "Indicadores" },
+      { label: "Projetos", href: "/coordenador/projetos", icon: <FolderGit2 className="h-4 w-4" /> },
       { label: "Mensagens", href: "/mensagens", icon: <MessageCircle className="h-4 w-4" />, section: "Comunicação" },
       { label: "Meu perfil", href: "/perfil", icon: <UserRound className="h-4 w-4" />, section: "Conta" },
     ],

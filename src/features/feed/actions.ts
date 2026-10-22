@@ -86,6 +86,10 @@ export async function criarPublicacaoServer(conteudo: unknown, urlAnexo?: unknow
   const usuario = await obterUsuarioAutenticado();
   if (!usuario) return { erro: "Inicie sessão para publicar na comunidade." };
 
+  if (usuario.papeis.includes("admin")) {
+    return { erro: "Administradores não têm permissão para publicar no Feed da comunidade." };
+  }
+
   const validacao = validarTextoSeguro(conteudo, "A publicação", { obrigatorio: true, maxLength: 1200 });
   if (!validacao.ok) return { erro: validacao.erro };
 
