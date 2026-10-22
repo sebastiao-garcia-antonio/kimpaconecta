@@ -479,6 +479,31 @@ export function GerenciadorDisciplinasCoordenador({
                 </select>
               </div>
 
+              {/* Docente Responsável (Opcional) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Docente Responsável
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opcional</span>
+                </div>
+                <select
+                  value={formIdDocente}
+                  onChange={(e) => setFormIdDocente(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-brand-blue focus:outline-none"
+                >
+                  <option value="">Nenhum docente (atribuir mais tarde)</option>
+                  {professores.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.nome} ({p.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Pode associar o professor agora ou geri-lo posteriormente no módulo de professores.
+                </p>
+              </div>
+
               <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"

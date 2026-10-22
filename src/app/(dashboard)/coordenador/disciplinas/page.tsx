@@ -57,7 +57,7 @@ export default async function PaginaDisciplinasCoordenador() {
   });
 
   // Disciplinas associadas aos cursos do coordenador
-  const disciplinas = await prisma.disciplina.findMany({
+  const disciplinas = await (prisma.disciplina as any).findMany({
     where: administrador
       ? {}
       : {
@@ -90,7 +90,7 @@ export default async function PaginaDisciplinasCoordenador() {
     ],
   });
 
-  const semestresDistintos = new Set(disciplinas.map((d) => d.semestre));
+  const semestresDistintos = new Set(disciplinas.map((d: any) => d.semestre));
 
   return (
     <div className="space-y-8">
